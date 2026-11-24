@@ -132,6 +132,7 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .plabel{font-size:12px;color:var(--muted)}
 .iout{white-space:pre-wrap;margin:12px 0 4px;font-size:15px;line-height:1.5}
 .iout:empty{display:none}
+.by{margin-top:14px;font-weight:500;color:var(--ink)}
 .sets{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;white-space:nowrap;text-align:right}
 .wt{grid-column:2 / 4;display:flex;align-items:center;gap:8px}
 .wt input{
@@ -926,6 +927,30 @@ function insightPayload() {
   };
 }
 
+async function askOne(token, provider, payload) {
+  const name = provider === "openai" ? "ChatGPT" : "Claude";
+  try {
+    const res = await fetch("/api/insight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(Object.assign({}, payload, { provider }))
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || !data || !data.insight) {
+      return { error: (data && data.error) || "Insights are not available here. They work on your live site." };
+    }
+    return { by: name + (data.model ? " (" + data.model + ")" : ""), text: data.insight };
+  } catch (e) {
+    return { error: name + ": could not reach the server." };
+  }
+}
+
+function insightItems(li) {
+  if (!li) return [];
+  return li.items || (li.text ? [{ by: "", text: li.text }] : []);
+}
+
 async function getInsight() {
   const out = document.getElementById("insightOut");
   const btn = document.querySelector("[data-insight]");
@@ -935,21 +960,20 @@ async function getInsight() {
   try {
     const s = await sb.auth.getSession();
     const token = s.data && s.data.session ? s.data.session.access_token : "";
-    const res = await fetch("/api/insight", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-      body: JSON.stringify(insightPayload())
-    });
-    let data = null;
-    try { data = await res.json(); } catch (e) {}
-    if (!res.ok || !data || !data.insight) {
-      out.textContent = (data && data.error) || "Insights are not available here. They work on your live site.";
+    const providers = ["openai"];
+    const payload = insightPayload();
+    const results = await Promise.all(providers.map((p) => askOne(token, p, payload)));
+    const good = results.filter((r) => r.text);
+    const errs = results.filter((r) => r.error).map((r) => r.error);
+    if (!good.length) {
+      out.textContent = errs[0] || "Insights are not available here. They work on your live site.";
       if (btn) btn.disabled = false;
       return;
     }
-    state.lastInsight = { at: ymd(new Date()), session: SESSIONS[getSid(selected)].title, text: data.insight };
+    state.lastInsight = { at: ymd(new Date()), session: SESSIONS[getSid(selected)].title, items: good };
     save();
     render();
+    if (errs.length) { const o2 = document.getElementById("insightOut"); if (o2) o2.textContent = errs.join(" "); }
   } catch (e) {
     out.textContent = "Could not reach the server. Try again.";
     if (btn) btn.disabled = false;
@@ -963,7 +987,8 @@ function insightCard() {
     `<div class="ctl2"><label for="goalsIn">Your goals (optional)</label>` +
     `<input id="goalsIn" type="text" maxlength="200" value="${esc(state.goals || "")}" placeholder="For example: build upper chest, run 15 km a week" autocomplete="off"></div>` +
     `<button type="button" class="btn gbtn" data-insight="1">Get insight</button>` +
-    `<p class="iout" id="insightOut">${li ? esc(li.text) : ""}</p>` +
+    `<p class="iout" id="insightOut"></p>` +
+    insightItems(li).map((it) => (it.by ? `<p class="hd by">${esc(it.by)}</p>` : "") + `<p class="iout">${esc(it.text)}</p>`).join("") +
     (li ? `<p class="hd">${esc(li.session)}, ${fmtDate(li.at)}</p>` : "") +
     `</section>`;
 }
