@@ -808,7 +808,7 @@ function runLog(label) {
   return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${fmtKm(total)} of ${GOAL_KM} km</span></div>` +
     `<div class="meter"><i style="width:${pct.toFixed(0)}%"></i></div>` +
     `<h4>Log a run${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
-    `<label>Date<input id="rDate" type="date" value="${ymd(new Date())}"></label>` +
+    `<label>Date<input id="rDate" type="date" value="${entryDate()}"></label>` +
     `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
     `<div class="fg"><span>Total time</span><div class="r2">` +
     `<input id="rH" data-rf="time" type="text" inputmode="numeric" placeholder="h" aria-label="Hours" autocomplete="off">` +
@@ -847,6 +847,17 @@ function runsCard() {
     `<details${pendingDel && pendingDel.indexOf("r|") === 0 ? " open" : ""}><summary>All runs (${runs.length})</summary>${all}</details></section>`;
 }
 
+// The date an entry should carry: the day that is open in the app, as long as
+// it is today or earlier this week. Later days this week use today's date.
+function entryDate() {
+  const now = new Date();
+  const idx = ORDER.indexOf(selected);
+  const todayIdx = ORDER.indexOf(todayKey());
+  if (idx < 0 || idx > todayIdx) return ymd(now);
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (todayIdx - idx));
+  return ymd(d);
+}
+
 function ymd(d) {
   const p = (n) => String(n).padStart(2, "0");
   return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
@@ -863,7 +874,7 @@ function recordWeight(slg, name, val) {
   if (kg === null) return;
   const h = state.history[slg] || (state.history[slg] = { n: name, e: [] });
   h.n = name;
-  const d = ymd(new Date());
+  const d = entryDate();
   const ex = h.e.find((x) => x.d === d);
   if (ex) ex.kg = kg; else h.e.push({ d, kg });
   h.e.sort((a, b) => (a.d < b.d ? -1 : 1));
