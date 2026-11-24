@@ -130,6 +130,8 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .pmenu{display:grid;gap:4px;margin-bottom:14px}
 .pmenu select{width:100%;min-height:48px;padding:0 12px;margin-bottom:8px;font-size:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--ink)}
 .plabel{font-size:12px;color:var(--muted)}
+.iout{white-space:pre-wrap;margin:12px 0 4px;font-size:15px;line-height:1.5}
+.iout:empty{display:none}
 .sets{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;white-space:nowrap;text-align:right}
 .wt{grid-column:2 / 4;display:flex;align-items:center;gap:8px}
 .wt input{
@@ -880,6 +882,92 @@ function counts(sid) {
   return { done, total: items.length };
 }
 
+function insightPayload() {
+  const prog = PROGRAMS[state.program];
+  const sid = getSid(selected);
+  const s = SESSIONS[sid];
+  const wk = weekKey();
+  const weekKm = state.runs.filter((r) => r.w === wk).reduce((t, r) => t + r.km, 0);
+  const exercises = getItems(sid).filter((i) => !i.opt).map((i) => {
+    const h = state.history[slug(i.n)];
+    return {
+      exercise: i.n,
+      plan: i.s,
+      doneThisWeek: !!state.done[doneKey(sid, i)],
+      recentWeightsKg: h ? h.e.slice(-12).map((x) => ({ date: x.d, kg: x.kg })) : []
+    };
+  });
+  const runs = state.runs.slice(-12).map((r) => ({
+    date: r.d, km: r.km, minutes: Math.round((r.sec / 60) * 10) / 10,
+    paceSecPerKm: Math.round(r.sec / r.km),
+    avgHr: r.hr || undefined, avgCadence: r.cad || undefined, strideM: r.stride || undefined
+  }));
+  const body = state.body.slice(-12).map((x) => ({ date: x.d, kg: x.kg }));
+  const inSession = new Set(getItems(sid).map((i) => slug(i.n)));
+  const lastDate = (k) => state.history[k].e[state.history[k].e.length - 1].d;
+  const others = Object.keys(state.history)
+    .filter((k) => !inSession.has(k) && state.history[k].e.length)
+    .sort((a, b) => (lastDate(a) < lastDate(b) ? 1 : lastDate(a) > lastDate(b) ? -1 : 0))
+    .slice(0, 12)
+    .map((k) => ({ exercise: state.history[k].n, recentWeightsKg: state.history[k].e.slice(-8).map((x) => ({ date: x.d, kg: x.kg })) }));
+  const byWeek = {};
+  state.runs.forEach((r) => { byWeek[r.w] = (byWeek[r.w] || 0) + r.km; });
+  const weeklyKm = Object.keys(byWeek).sort().slice(-8).map((w) => ({ weekStarting: w, km: Math.round(byWeek[w] * 100) / 100 }));
+  return {
+    today: ymd(new Date()),
+    todayWeekday: FULL[todayKey()],
+    program: prog.name,
+    session: s.title,
+    sessionType: s.kind,
+    goals: String(state.goals || "").slice(0, 200),
+    weeklyRunGoalKm: GOAL_KM,
+    runKmThisWeek: Math.round(weekKm * 100) / 100,
+    exercises, otherExercisesLogged: others, runs, weeklyRunKm: weeklyKm, bodyWeights: body
+  };
+}
+
+async function getInsight() {
+  const out = document.getElementById("insightOut");
+  const btn = document.querySelector("[data-insight]");
+  if (!sb || !user) { out.textContent = "Sign in to get insights. They use your account to keep usage fair."; return; }
+  out.textContent = "Thinking...";
+  if (btn) btn.disabled = true;
+  try {
+    const s = await sb.auth.getSession();
+    const token = s.data && s.data.session ? s.data.session.access_token : "";
+    const res = await fetch("/api/insight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(insightPayload())
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || !data || !data.insight) {
+      out.textContent = (data && data.error) || "Insights are not available here. They work on your live site.";
+      if (btn) btn.disabled = false;
+      return;
+    }
+    state.lastInsight = { at: ymd(new Date()), session: SESSIONS[getSid(selected)].title, text: data.insight };
+    save();
+    render();
+  } catch (e) {
+    out.textContent = "Could not reach the server. Try again.";
+    if (btn) btn.disabled = false;
+  }
+}
+
+function insightCard() {
+  const li = state.lastInsight;
+  return `<section class="hcard"><div class="hrow"><h3 class="hn">Coach insight</h3></div>` +
+    `<p class="hd">Short feedback based on what you have logged. It gets better after a few sessions.</p>` +
+    `<div class="ctl2"><label for="goalsIn">Your goals (optional)</label>` +
+    `<input id="goalsIn" type="text" maxlength="200" value="${esc(state.goals || "")}" placeholder="For example: build upper chest, run 15 km a week" autocomplete="off"></div>` +
+    `<button type="button" class="btn gbtn" data-insight="1">Get insight</button>` +
+    `<p class="iout" id="insightOut">${li ? esc(li.text) : ""}</p>` +
+    (li ? `<p class="hd">${esc(li.session)}, ${fmtDate(li.at)}</p>` : "") +
+    `</section>`;
+}
+
 const PROGRAM_MENU = [
   { id: "full3", label: "Full body, 3 days" },
   { id: "split", label: "4 day split", variants: [["split4", "Anterior / Posterior"], ["ul4", "Upper / Lower"]] },
@@ -952,11 +1040,12 @@ function render() {
       `<h2>${esc(s.title)}</h2><p class="note">${esc(s.note)}</p></div>` +
       body +
     `</section>` +
-    `<div class="legend"><i></i>Upper chest work</div>` +
+    insightCard() +
     `<p class="foot">Checkmarks reset each Monday. Weights and edits are saved to your account when you are signed in, or on this device if not.</p>`;
 }
 
 $app.addEventListener("click", (e) => {
+  if (e.target.closest("[data-insight]")) { getInsight(); return; }
   const au = e.target.closest("[data-auth]");
   if (au) {
     const a = au.dataset.auth;
@@ -1031,6 +1120,7 @@ $app.addEventListener("change", (e) => {
   if (e.target.closest("[data-rf]")) { recalcRun(); return; }
   const wi = e.target.closest("[data-weight]");
   if (wi) { recordWeight(wi.dataset.weight, wi.dataset.wname, wi.value); return; }
+  if (e.target.id === "goalsIn") { state.goals = e.target.value.trim().slice(0, 200); save(); return; }
   if (e.target.id === "progSel") {
     const g = PROGRAM_MENU.find((x) => x.id === e.target.value);
     if (g) state.program = g.variants ? g.variants[0][0] : g.id;
@@ -1171,6 +1261,8 @@ function mergeState(loc, remote) {
   const out = normalizeState(JSON.parse(JSON.stringify(remote || {})));
   out.weights = Object.assign({}, loc.weights, out.weights);
   out.done = Object.assign({}, loc.done, out.done);
+  if (!out.goals && loc.goals) out.goals = loc.goals;
+  if (!out.lastInsight && loc.lastInsight) out.lastInsight = loc.lastInsight;
   Object.keys(loc.history).forEach((k) => {
     const lh = loc.history[k];
     const rh = out.history[k];
