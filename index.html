@@ -96,6 +96,23 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .name{font-weight:500}
 .tag{display:block;font-size:12px;color:var(--chest);font-weight:500}
 .opt .tag{color:var(--muted)}
+.alt{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.runlog{border-top:1px solid var(--line);padding:14px 16px 8px}
+.runlog h4{font-family:var(--display);font-weight:600;font-size:20px;margin:16px 0 8px}
+.wkrow{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.wkrow b{font-weight:500}
+.meter{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:6px 0 8px}
+.meter i{display:block;height:100%;background:var(--run-bg);border-radius:4px}
+.rf{display:grid;gap:12px}
+.rf label,.rf .fg{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.rf input{width:100%;min-height:44px;padding:0 10px;font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+.r2{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.r3{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.rf .hint{margin:0}
+.runitem{display:grid;grid-template-columns:1fr 44px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.runitem small{display:block;color:var(--muted);font-size:12px}
+.runitem button{min-height:44px;background:none;border:0;font-size:20px;color:var(--muted)}
+.runlist{margin-top:14px}
 .sets{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;white-space:nowrap;text-align:right}
 .wt{grid-column:2 / 4;display:flex;align-items:center;gap:8px}
 .wt input{
@@ -116,10 +133,11 @@ h3{font-family:var(--display);font-weight:600;font-size:24px;margin:26px 0 8px}
 .legend i{width:4px;height:16px;background:var(--chest);display:inline-block}
 .phead .right{display:flex;align-items:center;gap:12px}
 .edit{min-height:36px;padding:0 14px;border:1px solid currentColor;border-radius:8px;background:transparent;font-weight:500;font-size:14px;color:inherit}
-.erow{display:grid;grid-template-columns:1fr 44px;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
-.nm{grid-column:1 / 3}
-.erow input,.add input,.ctl select{width:100%;min-height:44px;padding:0 10px;font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:8px}
-.erow .rm{min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:20px;line-height:1}
+.erow{display:grid;grid-template-columns:1fr 44px 44px 44px;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+.nm{grid-column:1 / -1}
+.erow input,.add input,.erow select,.add select,.ctl select{width:100%;min-height:44px;padding:0 10px;font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:8px}
+.erow .rm,.erow .mv{min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:20px;line-height:1}
+.erow .mv:disabled{opacity:.35}
 .add{display:grid;grid-template-columns:1fr 84px;gap:8px;padding:12px;border-top:1px solid var(--line)}
 .btn{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:500}
 .ctl{padding:12px;border-top:1px solid var(--line);display:grid;gap:8px}
@@ -177,9 +195,9 @@ const SESSIONS = {
     title: "Easy run, 5k", kind: "run",
     note: "Conversational pace. Keep it easy so it does not cut into recovery.",
     items: [
-      { n: "Spanish squat hold or wall sit", s: "3 x 30-45 sec", opt: true },
+      { n: "Spanish squat hold", alt: "Wall sit", s: "3 x 30-45 sec", opt: true },
       { n: "Slow step-downs (3 sec lowering)", s: "2 x 10 per leg", opt: true },
-      { n: "Backward sled drag or incline walk", s: "3 x 2 min", opt: true }
+      { n: "Backward sled drag", alt: "Backward incline walk", s: "3 x 2 min", opt: true }
     ],
     tip: "Knee strength option, instead of the flat run: 10 min easy jog, 6 x 30 sec uphill with a walk back down, 15-20 min easy flat, 5 min cool-down walk. Do the optional knee work above twice a week."
   },
@@ -198,7 +216,7 @@ const SESSIONS = {
     title: "Posterior A", kind: "gym",
     note: "Day after combat. Lighter on the legs, no heavy hinge.",
     items: [
-      { n: "Weighted pull-up or pulldown", s: "3 x 8-10" },
+      { n: "Weighted pull-up", alt: "Lat pulldown", s: "3 x 8-10" },
       { n: "Hip thrust", s: "3 x 8-10" },
       { n: "Chest-supported row", s: "2 x 8-10" },
       { n: "Seated leg curl", s: "2 x 10-12" },
@@ -236,10 +254,10 @@ const SESSIONS = {
     items: [
       { n: "Low-incline DB press", s: "3 x 8-10", chest: true },
       { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
-      { n: "Leg press or Bulgarian split squat", s: "3 x 8-10" },
+      { n: "Leg press", alt: "Bulgarian split squat (per leg)", s: "3 x 8-10" },
       { n: "Cable lateral raise", s: "2 x 15" },
       { n: "Standing calf raise", s: "3 x 12-15" },
-      { n: "Cable crunch or Pallof press", s: "2 x 10-12" }
+      { n: "Cable crunch", alt: "Pallof press", s: "2 x 10-12" }
     ]
   },
 
@@ -248,8 +266,8 @@ const SESSIONS = {
     note: "Heavy squat and incline press day.",
     items: [
       { n: "Incline press (30°)", s: "3 x 6-8", chest: true },
-      { n: "Weighted pull-up or pulldown", s: "3 x 8-10" },
-      { n: "Squat or hack squat", s: "3 x 6-8" },
+      { n: "Weighted pull-up", alt: "Lat pulldown", s: "3 x 8-10" },
+      { n: "Hack squat", alt: "Squat", s: "3 x 6-8" },
       { n: "Romanian deadlift", s: "2 x 8" },
       { n: "Lateral raise", s: "2 x 15" },
       { n: "Standing calf raise", s: "3 x 8-12" }
@@ -261,7 +279,7 @@ const SESSIONS = {
     items: [
       { n: "Low-incline DB press", s: "3 x 8-10", chest: true },
       { n: "Chest-supported row", s: "3 x 8-10" },
-      { n: "Leg press (moderate)", s: "2 x 10-12" },
+      { n: "Leg press", s: "2 x 10-12" },
       { n: "Seated leg curl", s: "3 x 10-12" },
       { n: "Hip thrust", s: "2 x 8-10" },
       { n: "Seated calf raise", s: "3 x 12" }
@@ -271,11 +289,11 @@ const SESSIONS = {
     title: "Full body C", kind: "gym",
     note: "Upper body volume. Moderate legs.",
     items: [
-      { n: "Incline machine or Smith press", s: "3 x 8-10", chest: true },
+      { n: "Smith incline press", alt: "Incline machine press", s: "3 x 8-10", chest: true },
       { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
       { n: "Neutral-grip pulldown", s: "2 x 10-12" },
       { n: "Bulgarian split squat (per leg)", s: "2 x 8-10" },
-      { n: "Back extension or lying leg curl", s: "2 x 10-12" },
+      { n: "Back extension", alt: "Lying leg curl", s: "2 x 10-12" },
       { n: "Standing calf raise", s: "3 x 12-15" }
     ]
   }
@@ -337,6 +355,7 @@ function load() {
   Object.keys(base.done).forEach((k) => { if (!k.startsWith(wk)) delete base.done[k]; });
   if (!base.history || typeof base.history !== "object") base.history = {};
   if (!Array.isArray(base.body)) base.body = [];
+  if (!Array.isArray(base.runs)) base.runs = [];
   if (!JS_DAYS.includes(base.bodyDay)) base.bodyDay = "sun";
   if (!base.custom || typeof base.custom !== "object") base.custom = {};
   if (!base.custom.sessions || typeof base.custom.sessions !== "object") base.custom.sessions = {};
@@ -352,6 +371,139 @@ const state = load();
 let selected = todayKey();
 let editing = false;
 let tab = "program";
+
+const GOAL_KM = 15;
+const runAuto = { km: false, time: false, pace: false, stride: false };
+
+function wkOf(ds) {
+  const d = new Date(ds + "T00:00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return ymd(d);
+}
+function fmtDur(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return h ? h + ":" + p(m) + ":" + p(s) : m + ":" + p(s);
+}
+function fmtKm(v) { return String(Number(v.toFixed(2))); }
+
+function runVal(id) {
+  const n = parseFloat(String(document.getElementById(id).value).replace(",", "."));
+  return isFinite(n) && n > 0 ? n : 0;
+}
+function readRun() {
+  return {
+    km: runVal("rKm"),
+    time: runVal("rH") * 3600 + runVal("rM") * 60 + runVal("rS"),
+    pace: runVal("rPm") * 60 + runVal("rPs"),
+    hr: runVal("rHr"), cad: runVal("rCad"), stride: runVal("rStr")
+  };
+}
+function setEl(id, v) { document.getElementById(id).value = v; }
+function fillTime(sec) {
+  sec = Math.round(sec);
+  setEl("rH", sec >= 3600 ? Math.floor(sec / 3600) : "");
+  setEl("rM", Math.floor((sec % 3600) / 60));
+  setEl("rS", sec % 60);
+  runAuto.time = true;
+}
+function fillPace(sec) {
+  sec = Math.round(sec);
+  setEl("rPm", Math.floor(sec / 60));
+  setEl("rPs", sec % 60);
+  runAuto.pace = true;
+}
+function fillKm(v) { setEl("rKm", Number(v.toFixed(2))); runAuto.km = true; }
+function fillStride(v) { setEl("rStr", Number(v.toFixed(2))); runAuto.stride = true; }
+
+function recalcRun() {
+  let r = readRun();
+  if (r.km && r.time && (!r.pace || runAuto.pace)) fillPace(r.time / r.km);
+  else if (r.km && r.pace && (!r.time || runAuto.time)) fillTime(r.pace * r.km);
+  else if (r.time && r.pace && (!r.km || runAuto.km)) fillKm(r.time / r.pace);
+  r = readRun();
+  const pace = r.pace || (r.km && r.time ? r.time / r.km : 0);
+  if (r.cad && pace && (!r.stride || runAuto.stride)) fillStride(60000 / pace / r.cad);
+  r = readRun();
+  const hint = document.getElementById("runHint");
+  if (hint) {
+    if (r.km && r.time && r.pace && Math.abs(r.time / r.km - r.pace) > 3) {
+      hint.textContent = "Distance and time work out to " + fmtDur(r.time / r.km) + " per km. The run is saved using distance and time.";
+    } else {
+      hint.textContent = "Enter any two of distance, time and pace and the third fills in. Stride fills in from pace and cadence.";
+    }
+  }
+}
+
+function saveRun() {
+  recalcRun();
+  const r = readRun();
+  const hint = document.getElementById("runHint");
+  if (!(r.km && r.time)) { if (hint) hint.textContent = "Enter at least two of distance, time and pace."; return; }
+  if (r.km > 300 || r.time > 86400) { if (hint) hint.textContent = "Those numbers look too large. Check the distance and time."; return; }
+  const ds = document.getElementById("rDate").value || ymd(new Date());
+  state.runs.push({ id: Date.now(), w: wkOf(ds), d: ds, km: r.km, sec: Math.round(r.time), hr: r.hr || 0, cad: r.cad || 0, stride: r.stride || 0 });
+  state.runs.sort((a, b) => a.id - b.id);
+  save(); render();
+}
+
+function runItem(r) {
+  const bits = [fmtDur(r.sec / r.km) + " /km"];
+  if (r.hr) bits.push(Math.round(r.hr) + " bpm");
+  if (r.cad) bits.push(Math.round(r.cad) + " spm");
+  if (r.stride) bits.push(fmtKm(r.stride) + " m stride");
+  return `<div class="runitem"><div>${fmtDate(r.d)}: ${fmtKm(r.km)} km in ${fmtDur(r.sec)}<small>${bits.join(", ")}</small></div>` +
+    `<button type="button" aria-label="Delete run from ${fmtDate(r.d)}" data-delrun="${r.id}">×</button></div>`;
+}
+
+function runLog() {
+  runAuto.km = runAuto.time = runAuto.pace = runAuto.stride = false;
+  const wk = weekKey();
+  const mine = state.runs.filter((r) => r.w === wk).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : b.id - a.id));
+  const total = mine.reduce((s, r) => s + r.km, 0);
+  const pct = Math.min(100, (total / GOAL_KM) * 100);
+  return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${fmtKm(total)} of ${GOAL_KM} km</span></div>` +
+    `<div class="meter"><i style="width:${pct.toFixed(0)}%"></i></div>` +
+    `<h4>Log a run</h4><div class="rf">` +
+    `<label>Date<input id="rDate" type="date" value="${ymd(new Date())}"></label>` +
+    `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
+    `<div class="fg"><span>Total time</span><div class="r2">` +
+    `<input id="rH" data-rf="time" type="text" inputmode="numeric" placeholder="h" aria-label="Hours" autocomplete="off">` +
+    `<input id="rM" data-rf="time" type="text" inputmode="numeric" placeholder="min" aria-label="Minutes" autocomplete="off">` +
+    `<input id="rS" data-rf="time" type="text" inputmode="numeric" placeholder="sec" aria-label="Seconds" autocomplete="off"></div></div>` +
+    `<div class="fg"><span>Avg pace per km</span><div class="r3">` +
+    `<input id="rPm" data-rf="pace" type="text" inputmode="numeric" placeholder="min" aria-label="Pace minutes" autocomplete="off">` +
+    `<input id="rPs" data-rf="pace" type="text" inputmode="numeric" placeholder="sec" aria-label="Pace seconds" autocomplete="off"></div></div>` +
+    `<div class="r2">` +
+    `<label>Avg heart rate<input id="rHr" data-rf="hr" type="text" inputmode="numeric" placeholder="bpm" autocomplete="off"></label>` +
+    `<label>Avg cadence<input id="rCad" data-rf="cad" type="text" inputmode="numeric" placeholder="spm" autocomplete="off"></label>` +
+    `<label>Avg stride<input id="rStr" data-rf="stride" type="text" inputmode="decimal" placeholder="m" autocomplete="off"></label></div>` +
+    `<p class="hint" id="runHint">Enter any two of distance, time and pace and the third fills in. Stride fills in from pace and cadence.</p>` +
+    `<button type="button" class="btn" data-runsave="1">Save run</button></div>` +
+    (mine.length ? `<div class="runlist"><div class="wkrow"><b>Runs this week</b></div>${mine.map(runItem).join("")}</div>` : "") +
+    `</div>`;
+}
+
+function runsCard() {
+  const runs = state.runs.slice().sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : a.id - b.id));
+  if (!runs.length) return "";
+  const last = runs[runs.length - 1];
+  const pts = runs.map((r) => ({ d: r.d, kg: r.sec / r.km }));
+  const byWeek = {};
+  runs.forEach((r) => { byWeek[r.w] = (byWeek[r.w] || 0) + r.km; });
+  const weeks = Object.keys(byWeek).sort().slice(-6).reverse();
+  const wrows = weeks.map((w) =>
+    `<div class="wkrow"><span>Week of ${fmtDate(w)}</span><b>${fmtKm(byWeek[w])} km</b></div>` +
+    `<div class="meter"><i style="width:${Math.min(100, (byWeek[w] / GOAL_KM) * 100).toFixed(0)}%"></i></div>`
+  ).join("");
+  const all = runs.slice().reverse().map(runItem).join("");
+  return `<section class="hcard"><div class="hrow"><h3 class="hn">Runs</h3><span class="hv">${fmtDur(last.sec / last.km)} /km</span></div>` +
+    `<p class="hd">Latest: ${fmtKm(last.km)} km on ${fmtDate(last.d)}</p>` +
+    (runs.length > 1 ? chart(pts, "body", fmtDur) : `<p class="hint">Log another run to see your pace graph.</p>`) +
+    `<p class="hd">The graph shows average pace per run. Weekly distance against ${GOAL_KM} km:</p>${wrows}` +
+    `<details><summary>All runs (${runs.length})</summary>${all}</details></section>`;
+}
 
 function ymd(d) {
   const p = (n) => String(n).padStart(2, "0");
@@ -398,7 +550,8 @@ function deltaText(e) {
   return s + " since " + fmtDate(e[0].d);
 }
 
-function chart(pts, cls) {
+function chart(pts, cls, fmt) {
+  const f = fmt || fmtKg;
   const W = 320, H = 130, L = 40, R = 14, T = 14, B = 24;
   const ts = pts.map((p) => new Date(p.d + "T00:00:00").getTime());
   const x0 = ts[0], x1 = ts[ts.length - 1];
@@ -413,11 +566,11 @@ function chart(pts, cls) {
   const lines = hi === lo ? [hi] : [hi, lo];
   const grid = lines.map((v) =>
     `<line class="gl" x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"></line>` +
-    `<text x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${fmtKg(v)}</text>`
+    `<text x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${f(v)}</text>`
   ).join("");
   const xl = `<text x="${L}" y="${H - 6}" text-anchor="start">${fmtDate(pts[0].d)}</text>` +
     `<text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtDate(pts[pts.length - 1].d)}</text>`;
-  return `<svg class="chart ${cls}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Line graph from ${fmtKg(pts[0].kg)} to ${fmtKg(pts[pts.length - 1].kg)} kg, ${fmtDate(pts[0].d)} to ${fmtDate(pts[pts.length - 1].d)}">` +
+  return `<svg class="chart ${cls}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Line graph from ${f(pts[0].kg)} to ${f(pts[pts.length - 1].kg)}, ${fmtDate(pts[0].d)} to ${fmtDate(pts[pts.length - 1].d)}">` +
     `${grid}<path class="ln" d="${path}"></path>${dots}${xl}</svg>`;
 }
 
@@ -432,14 +585,14 @@ function entriesList(e, key, kind) {
 function historyView() {
   const keys = Object.keys(state.history).filter((k) => state.history[k].e.length);
   if (!keys.length) {
-    return `<p class="blurb">Enter a weight on any exercise in the Program tab. Its history shows up here with a graph of your progress.</p>`;
+    return runsCard() + `<p class="blurb">Enter a weight on any exercise in the Program tab. Its history shows up here with a graph of your progress.</p>`;
   }
   keys.sort((a, b) => {
     const la = state.history[a].e[state.history[a].e.length - 1].d;
     const lb = state.history[b].e[state.history[b].e.length - 1].d;
     return la < lb ? 1 : la > lb ? -1 : state.history[a].n.localeCompare(state.history[b].n);
   });
-  return `<p class="blurb">Your logged weight for each exercise, one point per day. Most recent first.</p>` +
+  return runsCard() + `<p class="blurb">Your logged weight for each exercise, one point per day. Most recent first.</p>` +
     keys.map((k) => {
       const h = state.history[k];
       const e = h.e;
@@ -486,20 +639,41 @@ function tabBar() {
 }
 
 const LIBRARY = [
-  "Incline press (30°)", "Low-incline DB press", "Incline machine or Smith press", "Low-to-high cable fly", "Incline cable or pec deck fly", "Deficit push-up",
-  "Weighted pull-up or pulldown", "Neutral-grip pulldown", "Chest-supported row", "One-arm row", "Seated cable row",
-  "Hack squat", "Squat or hack squat", "Front squat", "Leg press (moderate)", "Leg press or Bulgarian split squat", "Bulgarian split squat (per leg)", "Walking lunge or step-up", "Leg extension",
-  "Romanian deadlift", "Hip thrust", "Seated leg curl", "Lying leg curl", "Back extension or lying leg curl", "45° back extension", "Hip adductor machine", "Nordic curl",
+  "Incline press (30°)", "Low-incline DB press", "Smith incline press", "Incline machine press", "Low-to-high cable fly", "Incline cable fly", "Pec deck fly", "Deficit push-up",
+  "Weighted pull-up", "Lat pulldown", "Neutral-grip pulldown", "Chest-supported row", "One-arm row", "Seated cable row",
+  "Hack squat", "Squat", "Front squat", "Leg press", "Bulgarian split squat (per leg)", "Walking lunge", "Step-up", "Leg extension",
+  "Romanian deadlift", "Hip thrust", "Seated leg curl", "Lying leg curl", "Back extension", "Hip adductor machine", "Nordic curl",
   "Lateral raise", "Cable lateral raise", "Rear delt fly", "Face pull",
-  "Standing calf raise", "Seated calf raise", "Cable crunch or Pallof press", "Pallof press", "Cable woodchop", "Hanging leg raise", "Neck flexion/extension (band)"
+  "Standing calf raise", "Seated calf raise", "Cable crunch", "Pallof press", "Cable woodchop", "Hanging leg raise", "Neck flexion/extension (band)"
 ];
-const CHEST = new Set(["Incline press (30°)", "Low-incline DB press", "Incline machine or Smith press", "Low-to-high cable fly", "Incline cable or pec deck fly"]);
+const CHEST = new Set(["Incline press (30°)", "Low-incline DB press", "Smith incline press", "Incline machine press", "Low-to-high cable fly", "Incline cable fly"]);
+
+let customIdx = -1;
+
+const LIB_GROUPS = [["Chest", 0, 8], ["Back", 8, 14], ["Legs", 14, 22], ["Hamstrings and glutes", 22, 29], ["Shoulders", 29, 33], ["Calves, core and neck", 33, 40]];
+
+function exOptions(cur, forAdd) {
+  let html = forAdd
+    ? `<option value="">Choose from the list</option>`
+    : (!cur || LIBRARY.includes(cur) ? "" : `<option value="${esc(cur)}" selected>${esc(cur)}</option>`);
+  html += LIB_GROUPS.map((g) =>
+    `<optgroup label="${g[0]}">` +
+    LIBRARY.slice(g[1], g[2]).map((n) => `<option value="${esc(n)}"${n === cur ? " selected" : ""}>${esc(n)}</option>`).join("") +
+    `</optgroup>`
+  ).join("");
+  if (!forAdd) html += `<option value="__custom__">Type your own...</option>`;
+  return html;
+}
 
 function editBody(sid, items) {
   const rows = items.map((it, i) =>
     `<div class="erow">` +
-    `<input class="nm" type="text" list="lib" data-ename="${i}" value="${esc(it.n)}" aria-label="Exercise ${i + 1} name" autocomplete="off">` +
+    (customIdx === i
+      ? `<input class="nm" type="text" data-ename="${i}" value="" placeholder="Type exercise name" aria-label="Custom exercise name" autocomplete="off">`
+      : `<select class="nm" data-esel="${i}" aria-label="Exercise ${i + 1}">${exOptions(it.n)}</select>`) +
     `<input type="text" data-esets="${i}" value="${esc(it.s)}" aria-label="Sets and reps for ${esc(it.n)}" autocomplete="off">` +
+    `<button type="button" class="mv" data-move="${i}|-1" aria-label="Move ${esc(it.n)} up"${i === 0 ? " disabled" : ""}>↑</button>` +
+    `<button type="button" class="mv" data-move="${i}|1" aria-label="Move ${esc(it.n)} down"${i === items.length - 1 ? " disabled" : ""}>↓</button>` +
     `<button type="button" class="rm" data-remove="${i}" aria-label="Remove ${esc(it.n)}">×</button></div>`
   ).join("");
   const ids = Object.keys(SESSIONS);
@@ -509,13 +683,13 @@ function editBody(sid, items) {
     `</optgroup>`
   ).join("");
   return rows +
-    `<div class="add"><input class="nm" id="newName" type="text" list="lib" placeholder="Add an exercise" autocomplete="off">` +
+    `<div class="add"><select class="nm" id="newSel" aria-label="Add an exercise">${exOptions("", true)}</select>` +
+    `<input class="nm" id="newName" type="text" placeholder="Or type your own name" autocomplete="off">` +
     `<input id="newSets" type="text" placeholder="3 x 10" autocomplete="off"><button type="button" class="btn" data-add="1">Add</button></div>` +
     `<div class="ctl"><label for="sessSel">Session for ${FULL[selected]}</label><select id="sessSel">${groups}</select>` +
     `<button type="button" class="reset" data-reset="session">Reset this session's exercises</button>` +
     `<button type="button" class="reset" data-reset="day">Reset ${FULL[selected]} to the default session</button></div>` +
-    `<p class="tip">Edits save on this device. Clear a name to see the exercise list, or type your own. Exercise changes apply to every day that uses the session.</p>` +
-    `<datalist id="lib">${LIBRARY.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>`;
+    `<p class="tip">Edits save on this device. Use the arrows to reorder. Exercise changes apply to every day that uses the session.</p>`;
 }
 
 function doneKey(sid, item) { return weekKey() + "|" + sid + "|" + slug(item.n); }
@@ -558,9 +732,10 @@ function render() {
     const isDone = !!state.done[dk];
     const w = state.weights[slg] || "";
     const tag = it.chest ? '<span class="tag">Upper chest</span>' : it.opt ? '<span class="tag">Optional</span>' : "";
+    const alt = it.alt ? `<span class="alt">Can be replaced with ${esc(it.alt)}</span>` : "";
     return `<li class="row${it.chest ? " chest" : ""}${it.opt ? " opt" : ""}${isDone ? " done" : ""}">` +
       `<input type="checkbox" data-done="${esc(dk)}" aria-label="Mark ${esc(it.n)} done"${isDone ? " checked" : ""}>` +
-      `<div class="name">${esc(it.n)}${tag}</div>` +
+      `<div class="name">${esc(it.n)}${tag}${alt}</div>` +
       `<div class="sets">${esc(it.s)}</div>` +
       (it.opt ? "" :
         `<div class="wt"><input type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" ` +
@@ -568,7 +743,7 @@ function render() {
       `</li>`;
   }).join("");
 
-  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "");
+  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "run" ? runLog() : "");
 
   const tabs = tabBar();
   if (tab === "history") { $app.innerHTML = `<h1>Training</h1>` + tabs + historyView(); return; }
@@ -594,6 +769,9 @@ function render() {
 $app.addEventListener("click", (e) => {
   const tb = e.target.closest("[data-tab]");
   if (tb) { tab = tb.dataset.tab; editing = false; render(); window.scrollTo(0, 0); return; }
+  if (e.target.closest("[data-runsave]")) { saveRun(); return; }
+  const dr = e.target.closest("[data-delrun]");
+  if (dr) { state.runs = state.runs.filter((x) => String(x.id) !== dr.dataset.delrun); save(); render(); return; }
   const bs = e.target.closest("[data-bodysave]");
   if (bs) {
     const inp = document.getElementById(bs.dataset.bodysave);
@@ -611,16 +789,29 @@ $app.addEventListener("click", (e) => {
     }
     save(); render(); return;
   }
-  if (e.target.closest("[data-edit]")) { editing = !editing; render(); return; }
+  if (e.target.closest("[data-edit]")) { customIdx = -1; editing = !editing; render(); return; }
+  const mv = e.target.closest("[data-move]");
+  if (mv) {
+    const parts = mv.dataset.move.split("|");
+    const i = Number(parts[0]);
+    const j = i + Number(parts[1]);
+    const sid = getSid(selected);
+    const arr = getItems(sid).slice();
+    if (j < 0 || j >= arr.length) return;
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    customIdx = -1;
+    state.custom.sessions[sid] = arr; save(); render(); return;
+  }
   const rm = e.target.closest("[data-remove]");
   if (rm) {
     const sid = getSid(selected);
     const arr = getItems(sid).slice();
+    customIdx = -1;
     arr.splice(Number(rm.dataset.remove), 1);
     state.custom.sessions[sid] = arr; save(); render(); return;
   }
   if (e.target.closest("[data-add]")) {
-    const n = document.getElementById("newName").value.trim();
+    const n = document.getElementById("newName").value.trim() || document.getElementById("newSel").value;
     if (!n) return;
     const sets = document.getElementById("newSets").value.trim() || "3 x 10";
     const sid = getSid(selected);
@@ -641,12 +832,27 @@ $app.addEventListener("click", (e) => {
 });
 
 $app.addEventListener("change", (e) => {
+  if (e.target.closest("[data-rf]")) { recalcRun(); return; }
   const wi = e.target.closest("[data-weight]");
   if (wi) { recordWeight(wi.dataset.weight, wi.dataset.wname, wi.value); return; }
   if (e.target.id === "bodyDay") { state.bodyDay = e.target.value; save(); render(); return; }
   if (e.target.id === "sessSel") {
     const wk = state.custom.week[state.program] = state.custom.week[state.program] || {};
     wk[selected] = e.target.value; save(); render(); return;
+  }
+  const sel = e.target.closest("[data-esel]");
+  if (sel) {
+    const i = Number(sel.dataset.esel);
+    if (sel.value === "__custom__") {
+      customIdx = i; render();
+      const f = $app.querySelector("[data-ename]");
+      if (f) f.focus();
+      return;
+    }
+    const sid = getSid(selected);
+    const arr = getItems(sid).slice();
+    arr[i] = Object.assign({}, arr[i], { n: sel.value, chest: CHEST.has(sel.value), alt: arr[i].alt === sel.value ? arr[i].n : arr[i].alt });
+    state.custom.sessions[sid] = arr; save(); return;
   }
   const en = e.target.closest("[data-ename]");
   const es = e.target.closest("[data-esets]");
@@ -656,8 +862,10 @@ $app.addEventListener("change", (e) => {
     if (en) {
       const i = Number(en.dataset.ename);
       const n = en.value.trim();
+      customIdx = -1;
       if (!n) { render(); return; }
       arr[i] = Object.assign({}, arr[i], { n, chest: CHEST.has(n) });
+      state.custom.sessions[sid] = arr; save(); render(); return;
     } else {
       const i = Number(es.dataset.esets);
       const v = es.value.trim();
@@ -679,6 +887,8 @@ $app.addEventListener("change", (e) => {
 });
 
 $app.addEventListener("input", (e) => {
+  const rf = e.target.closest("[data-rf]");
+  if (rf) { if (rf.dataset.rf in runAuto) runAuto[rf.dataset.rf] = false; return; }
   const w = e.target.closest("[data-weight]");
   if (!w) return;
   const v = w.value.trim();
