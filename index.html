@@ -121,6 +121,15 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:13px;min-height:44px;padding:0}
 .inl2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .btn2{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:500}
+.gbtn{width:100%}
+.or{text-align:center;margin:10px 0 12px}
+.danger{background:#B3261E;border-color:#B3261E;color:#fff}
+.warn{margin:0 0 8px;font-size:13px;color:var(--ink)}
+.ent li.confirm{display:block;padding:8px 0}
+.runitem.confirm{grid-template-columns:1fr}
+.pmenu{display:grid;gap:4px;margin-bottom:14px}
+.pmenu select{width:100%;min-height:48px;padding:0 12px;margin-bottom:8px;font-size:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+.plabel{font-size:12px;color:var(--muted)}
 .sets{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;white-space:nowrap;text-align:right}
 .wt{grid-column:2 / 4;display:flex;align-items:center;gap:8px}
 .wt input{
@@ -305,8 +314,118 @@ const SESSIONS = {
       { n: "Back extension", alt: "Lying leg curl", s: "2 x 10-12" },
       { n: "Standing calf raise", s: "3 x 12-15" }
     ]
+  },
+
+  upperA: {
+    title: "Upper A", kind: "gym",
+    note: "Heavy upper day. Chest first while you are fresh.",
+    items: [
+      { n: "Incline press (30°)", s: "3 x 6-8", chest: true },
+      { n: "Weighted pull-up", alt: "Lat pulldown", s: "3 x 8-10" },
+      { n: "Low-incline DB press", s: "2 x 8-10", chest: true },
+      { n: "Chest-supported row", s: "2 x 8-10" },
+      { n: "Lateral raise", s: "2 x 15" },
+      { n: "Rear delt fly", s: "2 x 15" }
+    ]
+  },
+  lowerA: {
+    title: "Lower A", kind: "gym",
+    note: "Heavy lower day. Romanian deadlift here, hip thrust on the other lower day.",
+    items: [
+      { n: "Hack squat", alt: "Squat", s: "3 x 6-8" },
+      { n: "Romanian deadlift", s: "3 x 6-8" },
+      { n: "Leg extension", s: "2 x 12-15" },
+      { n: "Seated leg curl", s: "2 x 10-12" },
+      { n: "Standing calf raise", s: "3 x 8-12" },
+      { n: "Cable crunch", alt: "Pallof press", s: "2 x 10-12" }
+    ]
+  },
+  upperB: {
+    title: "Upper B", kind: "gym",
+    note: "Volume day. Keep reps clean.",
+    items: [
+      { n: "Smith incline press", alt: "Incline machine press", s: "3 x 8-10", chest: true },
+      { n: "Neutral-grip pulldown", s: "3 x 10-12" },
+      { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
+      { n: "One-arm row", s: "2 x 10-12" },
+      { n: "Cable lateral raise", s: "2 x 15" },
+      { n: "Face pull", s: "2 x 15" }
+    ]
+  },
+  lowerB: {
+    title: "Lower B", kind: "gym",
+    note: "Moderate legs. Long run is tomorrow.",
+    items: [
+      { n: "Leg press", alt: "Bulgarian split squat (per leg)", s: "3 x 8-10" },
+      { n: "Hip thrust", s: "3 x 8-10" },
+      { n: "Lying leg curl", s: "3 x 10-12" },
+      { n: "Hip adductor machine", s: "2 x 12" },
+      { n: "Seated calf raise", s: "3 x 12-15" }
+    ]
+  },
+
+  back: {
+    title: "Back", kind: "gym",
+    note: "Day after combat. Light on the legs, no heavy hinge.",
+    items: [
+      { n: "Weighted pull-up", alt: "Lat pulldown", s: "3 x 8-10" },
+      { n: "Chest-supported row", s: "3 x 8-10" },
+      { n: "Neutral-grip pulldown", s: "2 x 10-12" },
+      { n: "One-arm row", s: "2 x 10-12" },
+      { n: "Rear delt fly", s: "2 x 15" }
+    ]
+  },
+  legs: {
+    title: "Legs", kind: "gym",
+    note: "Heavy leg day, a few days before the long run.",
+    items: [
+      { n: "Hack squat", alt: "Squat", s: "3 x 6-8" },
+      { n: "Romanian deadlift", s: "3 x 6-8" },
+      { n: "Leg extension", s: "2 x 12-15" },
+      { n: "Seated leg curl", s: "2 x 10-12" },
+      { n: "Hip adductor machine", s: "2 x 12" },
+      { n: "Standing calf raise", s: "3 x 8-12" },
+      { n: "Seated calf raise", s: "3 x 12" }
+    ]
+  },
+  chest: {
+    title: "Chest", kind: "gym",
+    note: "Upper chest focus. Incline first.",
+    items: [
+      { n: "Incline press (30°)", s: "4 x 6-8", chest: true },
+      { n: "Low-incline DB press", s: "3 x 8-10", chest: true },
+      { n: "Incline machine press", s: "2 x 10-12", chest: true },
+      { n: "Low-to-high cable fly", s: "3 x 12-15", chest: true }
+    ]
+  },
+  shoulders: {
+    title: "Shoulders and core", kind: "gym",
+    note: "Moderate day. Long run is tomorrow.",
+    items: [
+      { n: "Lateral raise", s: "3 x 15" },
+      { n: "Cable lateral raise", s: "2 x 15" },
+      { n: "Rear delt fly", s: "3 x 15" },
+      { n: "Face pull", s: "3 x 15" },
+      { n: "Cable crunch", alt: "Pallof press", s: "3 x 10-12" },
+      { n: "Cable woodchop", s: "2 x 10 per side" }
+    ]
+  },
+  push: {
+    title: "Push", kind: "gym",
+    note: "Chest first, then shoulders.",
+    items: [
+      { n: "Incline press (30°)", s: "3 x 6-8", chest: true },
+      { n: "Low-incline DB press", s: "3 x 8-10", chest: true },
+      { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
+      { n: "Lateral raise", s: "3 x 15" },
+      { n: "Cable lateral raise", s: "2 x 15" }
+    ]
   }
 };
+
+SESSIONS.pull = Object.assign({}, SESSIONS.back, { title: "Pull" });
+SESSIONS.upperP = Object.assign({}, SESSIONS.upperB, { title: "Upper", note: "Volume day. Keep reps clean." });
+SESSIONS.lowerP = Object.assign({}, SESSIONS.lowerB, { title: "Lower", note: "Moderate legs. Long run is tomorrow." });
 
 const PROGRAMS = {
   split4: {
@@ -318,17 +437,29 @@ const PROGRAMS = {
     name: "3 day full body",
     blurb: "Full body three times a week. Combat on Monday, about 15k of running.",
     week: { mon: "combat", tue: "fbB", wed: "run5", thu: "fbA", fri: "run4", sat: "fbC", sun: "long" }
+  },
+  ul4: {
+    name: "Upper / Lower",
+    blurb: "Upper and lower split. Combat on Monday, about 15k of running.",
+    week: { mon: "combat", tue: "upperA", wed: "run5", thu: "lowerA", fri: "upperB", sat: "lowerB", sun: "long" }
+  },
+  bro4: {
+    name: "Bro split",
+    blurb: "One body part a day: back, legs, chest, shoulders and core. No direct arm days. Combat on Monday, about 15k of running.",
+    week: { mon: "combat", tue: "back", wed: "run5", thu: "legs", fri: "chest", sat: "shoulders", sun: "long" }
+  },
+  ppl3: {
+    name: "PPL",
+    blurb: "Pull, legs and push once each. Combat on Monday, about 15k of running.",
+    week: { mon: "combat", tue: "pull", wed: "run5", thu: "legs", fri: "run4", sat: "push", sun: "long" }
+  },
+  pplul5: {
+    name: "PPL + Upper / Lower",
+    blurb: "Five gym days: pull, push, legs, upper and lower. Easy runs go after lifting on Wednesday and Friday. Combat on Monday.",
+    week: { mon: "combat", tue: "pull", wed: "push", thu: "legs", fri: "upperP", sat: "lowerP", sun: "long" },
+    runWith: { wed: "easy 5k", fri: "easy 4k" }
   }
 };
-
-const RULES = [
-  "Keep the bench at 20-30°. Steeper turns incline press into a shoulder press.",
-  "Stop most sets 1-2 reps shy of failure.",
-  "Rest 2-3 min on compounds and 60-90 sec on isolation work.",
-  "Add weight or a rep once you hit the top of the range with clean form.",
-  "After hard sparring, cut a set or two from Tuesday instead of skipping it.",
-  "Every 6-8 weeks, cut sets by about 40% for a week."
-];
 
 /* ============================================================
    APP CODE
@@ -381,6 +512,7 @@ const state = load();
 let selected = todayKey();
 let editing = false;
 let tab = "program";
+let pendingDel = "";
 
 const GOAL_KM = 15;
 const runAuto = { km: false, time: false, pace: false, stride: false };
@@ -463,11 +595,15 @@ function runItem(r) {
   if (r.hr) bits.push(Math.round(r.hr) + " bpm");
   if (r.cad) bits.push(Math.round(r.cad) + " spm");
   if (r.stride) bits.push(fmtKm(r.stride) + " m stride");
+  if (pendingDel === "r|" + r.id) {
+    return `<div class="runitem confirm"><div><p class="warn">Delete this run? It is removed from this week's total and your history. This can't be undone.</p>` +
+      `<div class="inl2"><button type="button" class="btn danger" data-delok="r|${r.id}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></div></div>`;
+  }
   return `<div class="runitem"><div>${fmtDate(r.d)}: ${fmtKm(r.km)} km in ${fmtDur(r.sec)}<small>${bits.join(", ")}</small></div>` +
     `<button type="button" aria-label="Delete run from ${fmtDate(r.d)}" data-delrun="${r.id}">×</button></div>`;
 }
 
-function runLog() {
+function runLog(label) {
   runAuto.km = runAuto.time = runAuto.pace = runAuto.stride = false;
   const wk = weekKey();
   const mine = state.runs.filter((r) => r.w === wk).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : b.id - a.id));
@@ -475,7 +611,7 @@ function runLog() {
   const pct = Math.min(100, (total / GOAL_KM) * 100);
   return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${fmtKm(total)} of ${GOAL_KM} km</span></div>` +
     `<div class="meter"><i style="width:${pct.toFixed(0)}%"></i></div>` +
-    `<h4>Log a run</h4><div class="rf">` +
+    `<h4>Log a run${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
     `<label>Date<input id="rDate" type="date" value="${ymd(new Date())}"></label>` +
     `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
     `<div class="fg"><span>Total time</span><div class="r2">` +
@@ -512,7 +648,7 @@ function runsCard() {
     `<p class="hd">Latest: ${fmtKm(last.km)} km on ${fmtDate(last.d)}</p>` +
     (runs.length > 1 ? chart(pts, "body", fmtDur) : `<p class="hint">Log another run to see your pace graph.</p>`) +
     `<p class="hd">The graph shows average pace per run. Weekly distance against ${GOAL_KM} km:</p>${wrows}` +
-    `<details><summary>All runs (${runs.length})</summary>${all}</details></section>`;
+    `<details${pendingDel && pendingDel.indexOf("r|") === 0 ? " open" : ""}><summary>All runs (${runs.length})</summary>${all}</details></section>`;
 }
 
 function ymd(d) {
@@ -584,12 +720,40 @@ function chart(pts, cls, fmt) {
     `${grid}<path class="ln" d="${path}"></path>${dots}${xl}</svg>`;
 }
 
+function confirmDelete(dk) {
+  const parts = dk.split("|");
+  pendingDel = "";
+  if (parts[0] === "r") {
+    state.runs = state.runs.filter((x) => String(x.id) !== parts[1]);
+  } else if (parts[0] === "h") {
+    const slg = parts[1], d = parts[2];
+    const h = state.history[slg];
+    if (h) {
+      h.e = h.e.filter((x) => x.d !== d);
+      if (h.e.length) state.weights[slg] = fmtKg(h.e[h.e.length - 1].kg);
+      else { delete state.history[slg]; delete state.weights[slg]; }
+    }
+    if (wkOf(d) === weekKey()) {
+      const suf = "|" + slg;
+      Object.keys(state.done).forEach((k) => { if (k.endsWith(suf)) delete state.done[k]; });
+    }
+  } else {
+    state.body = state.body.filter((x) => x.d !== parts[2]);
+  }
+  save(); render();
+}
+
 function entriesList(e, key, kind) {
-  return `<details><summary>All entries (${e.length})</summary><ul class="ent">` +
-    e.slice().reverse().map((x) =>
-      `<li><span>${fmtDate(x.d)}</span><b>${fmtKg(x.kg)} kg</b>` +
-      `<button type="button" class="x" data-del="${kind}|${esc(key)}|${x.d}" aria-label="Delete entry from ${fmtDate(x.d)}">×</button></li>`
-    ).join("") + `</ul></details>`;
+  return `<details${pendingDel && pendingDel.indexOf(kind + "|" + key + "|") === 0 ? " open" : ""}><summary>All entries (${e.length})</summary><ul class="ent">` +
+    e.slice().reverse().map((x) => {
+      const dk = kind + "|" + key + "|" + x.d;
+      if (pendingDel === dk) {
+        return `<li class="confirm"><p class="warn">${kind === "h" ? "Delete this entry? It also clears the weight from your workout day. This can't be undone." : "Delete this weigh-in? This can't be undone."}</p>` +
+          `<div class="inl2"><button type="button" class="btn danger" data-delok="${esc(dk)}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></li>`;
+      }
+      return `<li><span>${fmtDate(x.d)}</span><b>${fmtKg(x.kg)} kg</b>` +
+        `<button type="button" class="x" data-del="${esc(dk)}" aria-label="Delete entry from ${fmtDate(x.d)}">×</button></li>`;
+    }).join("") + `</ul></details>`;
 }
 
 function historyView() {
@@ -716,6 +880,26 @@ function counts(sid) {
   return { done, total: items.length };
 }
 
+const PROGRAM_MENU = [
+  { id: "full3", label: "Full body, 3 days" },
+  { id: "split", label: "4 day split", variants: [["split4", "Anterior / Posterior"], ["ul4", "Upper / Lower"]] },
+  { id: "bro4", label: "Bro split, 4 days" },
+  { id: "ppl3", label: "PPL, 3 days" },
+  { id: "pplul5", label: "PPL + Upper / Lower, 5 days" }
+];
+
+function programMenu() {
+  const group = PROGRAM_MENU.find((g) => g.id === state.program || (g.variants && g.variants.some((v) => v[0] === state.program))) || PROGRAM_MENU[0];
+  const opts = PROGRAM_MENU.map((g) => `<option value="${g.id}"${g === group ? " selected" : ""}>${esc(g.label)}</option>`).join("");
+  let html = `<label class="plabel" for="progSel">Program for the week</label><select id="progSel">${opts}</select>`;
+  if (group.variants) {
+    html += `<label class="plabel" for="varSel">Split type</label><select id="varSel">` +
+      group.variants.map((v) => `<option value="${v[0]}"${v[0] === state.program ? " selected" : ""}>${esc(v[1])}</option>`).join("") +
+      `</select>`;
+  }
+  return html;
+}
+
 function render() {
   const prog = PROGRAMS[state.program];
   const today = todayKey();
@@ -724,9 +908,7 @@ function render() {
   const items = getItems(sid);
   const c = counts(sid);
 
-  const seg = Object.keys(PROGRAMS).map((id) =>
-    `<button type="button" data-program="${id}" aria-pressed="${id === state.program}">${esc(PROGRAMS[id].name)}</button>`
-  ).join("");
+  const seg = programMenu();
 
   const week = ORDER.map((d) => {
     const dsid = getSid(d);
@@ -753,7 +935,7 @@ function render() {
       `</li>`;
   }).join("");
 
-  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "run" ? runLog() : "");
+  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "run" ? runLog("") : (prog.runWith && prog.runWith[selected] ? runLog(prog.runWith[selected]) : ""));
 
   const tabs = tabBar();
   if (tab === "history") { $app.innerHTML = topbar() + tabs + historyView(); return; }
@@ -761,7 +943,7 @@ function render() {
   $app.innerHTML =
     topbar() + tabs +
     `<p class="blurb">${esc(prog.blurb)}</p>` +
-    `<div class="seg" role="group" aria-label="Program">${seg}</div>` +
+    `<div class="pmenu">${seg}</div>` +
     `<div class="week" role="group" aria-label="Week">${week}</div>` +
     weighPrompt() +
     `<section class="panel k-${s.kind}">` +
@@ -771,9 +953,7 @@ function render() {
       body +
     `</section>` +
     `<div class="legend"><i></i>Upper chest work</div>` +
-    `<h3>Rules of thumb</h3>` +
-    `<ul class="rules">${RULES.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` +
-    `<p class="foot">Weights and checkmarks are saved on this device only. Checkmarks reset each Monday.</p>`;
+    `<p class="foot">Checkmarks reset each Monday. Weights and edits are saved to your account when you are signed in, or on this device if not.</p>`;
 }
 
 $app.addEventListener("click", (e) => {
@@ -782,15 +962,21 @@ $app.addEventListener("click", (e) => {
     const a = au.dataset.auth;
     if (a === "signin" || a === "signup") doAuth(a);
     else if (a === "guest") { try { localStorage.setItem(GUEST_KEY, "1"); } catch (err) {} render(); }
+    else if (a === "google") doGoogle();
+    else if (a === "forgot") doForgot();
+    else if (a === "setpass") doSetPass();
     else if (a === "in") showAuth();
     else if (a === "out") doSignOut();
     return;
   }
   const tb = e.target.closest("[data-tab]");
-  if (tb) { tab = tb.dataset.tab; editing = false; render(); window.scrollTo(0, 0); return; }
+  if (tb) { tab = tb.dataset.tab; editing = false; pendingDel = ""; render(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-runsave]")) { saveRun(); return; }
   const dr = e.target.closest("[data-delrun]");
-  if (dr) { state.runs = state.runs.filter((x) => String(x.id) !== dr.dataset.delrun); save(); render(); return; }
+  if (dr) { pendingDel = "r|" + dr.dataset.delrun; render(); return; }
+  if (e.target.closest("[data-delno]")) { pendingDel = ""; render(); return; }
+  const okd = e.target.closest("[data-delok]");
+  if (okd) { confirmDelete(okd.dataset.delok); return; }
   const bs = e.target.closest("[data-bodysave]");
   if (bs) {
     const inp = document.getElementById(bs.dataset.bodysave);
@@ -798,16 +984,7 @@ $app.addEventListener("click", (e) => {
     return;
   }
   const dl = e.target.closest("[data-del]");
-  if (dl) {
-    const parts = dl.dataset.del.split("|");
-    if (parts[0] === "h") {
-      const h = state.history[parts[1]];
-      if (h) { h.e = h.e.filter((x) => x.d !== parts[2]); if (!h.e.length) delete state.history[parts[1]]; }
-    } else {
-      state.body = state.body.filter((x) => x.d !== parts[2]);
-    }
-    save(); render(); return;
-  }
+  if (dl) { pendingDel = dl.dataset.del; render(); return; }
   if (e.target.closest("[data-edit]")) { customIdx = -1; editing = !editing; render(); return; }
   const mv = e.target.closest("[data-move]");
   if (mv) {
@@ -854,6 +1031,17 @@ $app.addEventListener("change", (e) => {
   if (e.target.closest("[data-rf]")) { recalcRun(); return; }
   const wi = e.target.closest("[data-weight]");
   if (wi) { recordWeight(wi.dataset.weight, wi.dataset.wname, wi.value); return; }
+  if (e.target.id === "progSel") {
+    const g = PROGRAM_MENU.find((x) => x.id === e.target.value);
+    if (g) state.program = g.variants ? g.variants[0][0] : g.id;
+    customIdx = -1; editing = false;
+    save(); render(); return;
+  }
+  if (e.target.id === "varSel") {
+    state.program = e.target.value;
+    customIdx = -1; editing = false;
+    save(); render(); return;
+  }
   if (e.target.id === "bodyDay") { state.bodyDay = e.target.value; save(); render(); return; }
   if (e.target.id === "sessSel") {
     const wk = state.custom.week[state.program] = state.custom.week[state.program] || {};
@@ -924,6 +1112,7 @@ const SUPABASE_KEY = "sb_publishable_JhY4iBI-PZGTvQNhTApaHQ_PCATDpjW";
 const DIRTY_KEY = "training:dirty";
 const GUEST_KEY = "training:guest";
 
+let recoveryMode = /type=recovery/.test(window.location.hash);
 let sb = null;
 try {
   if (window.supabase && window.supabase.createClient) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1053,10 +1242,13 @@ function showAuth(msg) {
   $app.innerHTML = `<div class="topbar"><h1>Training</h1></div>` +
     `<p class="blurb">Sign in to save your progress and use it on any device.</p>` +
     `<section class="hcard">` +
+    `<button type="button" class="btn gbtn" data-auth="google">Continue with Google</button>` +
+    `<p class="hd or">or use your email</p>` +
     `<div class="ctl2"><label for="aEmail">Email</label><input id="aEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none"></div>` +
     `<div class="ctl2"><label for="aPass">Password (6 or more characters)</label><input id="aPass" type="password" autocomplete="current-password"></div>` +
     `<div class="inl2"><button type="button" class="btn" data-auth="signin">Sign in</button>` +
     `<button type="button" class="btn2" data-auth="signup">Create account</button></div>` +
+    `<button type="button" class="link" data-auth="forgot">Forgot password?</button>` +
     `<p class="hd" id="aMsg">${esc(msg || "")}</p></section>` +
     `<button type="button" class="reset" data-auth="guest">Continue without an account (this device only)</button>`;
 }
@@ -1080,6 +1272,63 @@ async function doAuth(kind) {
   }
 }
 
+const MERGE_KEY = "training:merge";
+
+async function doForgot() {
+  const email = document.getElementById("aEmail").value.trim();
+  const msg = document.getElementById("aMsg");
+  if (!email) { msg.textContent = "Type your email above, then tap Forgot password."; return; }
+  msg.textContent = "Sending...";
+  try {
+    const res = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    msg.textContent = res.error
+      ? res.error.message
+      : "If that email has an account, a reset link is on its way. Check your inbox and spam folder.";
+  } catch (e) {
+    msg.textContent = "Could not reach the server. Check your connection and try again.";
+  }
+}
+
+function showReset(msg) {
+  $app.innerHTML = `<div class="topbar"><h1>Training</h1></div>` +
+    `<p class="blurb">Choose a new password.</p>` +
+    `<section class="hcard">` +
+    `<div class="ctl2"><label for="nPass">New password (6 or more characters)</label><input id="nPass" type="password" autocomplete="new-password"></div>` +
+    `<button type="button" class="btn gbtn" data-auth="setpass">Save new password</button>` +
+    `<p class="hd" id="aMsg">${esc(msg || "")}</p></section>`;
+}
+
+async function doSetPass() {
+  const p = document.getElementById("nPass").value;
+  const msg = document.getElementById("aMsg");
+  if (p.length < 6) { msg.textContent = "Use at least 6 characters."; return; }
+  msg.textContent = "Saving...";
+  try {
+    const res = await sb.auth.updateUser({ password: p });
+    if (res.error) { msg.textContent = res.error.message; return; }
+    recoveryMode = false;
+    const s = await sb.auth.getSession();
+    if (s.data && s.data.session) { await onSignedIn(s.data.session, "auto"); return; }
+    showAuth("Password updated. Sign in with your new password.");
+  } catch (e) {
+    msg.textContent = "Could not reach the server. Try again.";
+  }
+}
+
+async function doGoogle() {
+  const msg = document.getElementById("aMsg");
+  try {
+    try { localStorage.setItem(MERGE_KEY, "1"); } catch (e) {}
+    const res = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (res.error && msg) msg.textContent = res.error.message;
+  } catch (e) {
+    if (msg) msg.textContent = "Could not reach the server. Check your connection and try again.";
+  }
+}
+
 async function doSignOut() {
   await pushNow();
   if (isDirty()) { setSync("Could not save yet. Connect and try again."); return; }
@@ -1095,6 +1344,7 @@ async function doSignOut() {
 
 $app.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.id === "aPass") doAuth("signin");
+  if (e.key === "Enter" && e.target.id === "nPass") doSetPass();
 });
 
 window.addEventListener("online", () => { if (user && isDirty()) pushNow(); });
@@ -1118,8 +1368,15 @@ async function boot() {
   if (!sb) { render(); return; }
   try {
     const r = await sb.auth.getSession();
-    if (r.data && r.data.session) { await onSignedIn(r.data.session, "auto"); return; }
+    if (r.data && r.data.session && recoveryMode) { showReset(); return; }
+    if (r.data && r.data.session) {
+      let mode = "auto";
+      try { if (localStorage.getItem(MERGE_KEY) === "1") { mode = "merge"; localStorage.removeItem(MERGE_KEY); } } catch (e) {}
+      await onSignedIn(r.data.session, mode);
+      return;
+    }
   } catch (e) {}
+  try { localStorage.removeItem(MERGE_KEY); } catch (e) {}
   let guest = false;
   try { guest = localStorage.getItem(GUEST_KEY) === "1"; } catch (e) {}
   if (guest) render(); else showAuth();
