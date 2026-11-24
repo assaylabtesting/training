@@ -113,6 +113,14 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .runitem small{display:block;color:var(--muted);font-size:12px}
 .runitem button{min-height:44px;background:none;border:0;font-size:20px;color:var(--muted)}
 .runlist{margin-top:14px}
+.topbar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:4px}
+.topbar h1{margin:0 0 4px}
+.acct{display:flex;flex-direction:column;align-items:flex-end;max-width:55%}
+.who{font-size:12px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync{font-size:12px;color:var(--muted)}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:13px;min-height:44px;padding:0}
+.inl2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn2{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:500}
 .sets{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;white-space:nowrap;text-align:right}
 .wt{grid-column:2 / 4;display:flex;align-items:center;gap:8px}
 .wt input{
@@ -175,6 +183,7 @@ h3{font-family:var(--display);font-weight:600;font-size:24px;margin:26px 0 8px}
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
 <script>
 /* ============================================================
@@ -365,6 +374,7 @@ function load() {
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  if (typeof user !== "undefined" && user) { setDirty(true); schedulePush(); }
 }
 
 const state = load();
@@ -746,10 +756,10 @@ function render() {
   const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "run" ? runLog() : "");
 
   const tabs = tabBar();
-  if (tab === "history") { $app.innerHTML = `<h1>Training</h1>` + tabs + historyView(); return; }
-  if (tab === "body") { $app.innerHTML = `<h1>Training</h1>` + tabs + bodyView(); return; }
+  if (tab === "history") { $app.innerHTML = topbar() + tabs + historyView(); return; }
+  if (tab === "body") { $app.innerHTML = topbar() + tabs + bodyView(); return; }
   $app.innerHTML =
-    `<h1>Training</h1>` + tabs +
+    topbar() + tabs +
     `<p class="blurb">${esc(prog.blurb)}</p>` +
     `<div class="seg" role="group" aria-label="Program">${seg}</div>` +
     `<div class="week" role="group" aria-label="Week">${week}</div>` +
@@ -767,6 +777,15 @@ function render() {
 }
 
 $app.addEventListener("click", (e) => {
+  const au = e.target.closest("[data-auth]");
+  if (au) {
+    const a = au.dataset.auth;
+    if (a === "signin" || a === "signup") doAuth(a);
+    else if (a === "guest") { try { localStorage.setItem(GUEST_KEY, "1"); } catch (err) {} render(); }
+    else if (a === "in") showAuth();
+    else if (a === "out") doSignOut();
+    return;
+  }
   const tb = e.target.closest("[data-tab]");
   if (tb) { tab = tb.dataset.tab; editing = false; render(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-runsave]")) { saveRun(); return; }
@@ -896,7 +915,217 @@ $app.addEventListener("input", (e) => {
   save();
 });
 
-render();
+/* ============================================================
+   LOGIN AND CLOUD SAVE (Supabase)
+   ============================================================ */
+
+const SUPABASE_URL = "https://qxuhlfandcuhkohcmtnt.supabase.co";
+const SUPABASE_KEY = "sb_publishable_JhY4iBI-PZGTvQNhTApaHQ_PCATDpjW";
+const DIRTY_KEY = "training:dirty";
+const GUEST_KEY = "training:guest";
+
+let sb = null;
+try {
+  if (window.supabase && window.supabase.createClient) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) { sb = null; }
+
+let user = null;
+let syncMsg = "";
+let lastAt = 0;
+let pushTimer = null;
+let pushing = false;
+
+function isDirty() { try { return localStorage.getItem(DIRTY_KEY) === "1"; } catch (e) { return false; } }
+function setDirty(v) {
+  try { if (v) localStorage.setItem(DIRTY_KEY, "1"); else localStorage.removeItem(DIRTY_KEY); } catch (e) {}
+}
+function setSync(m) {
+  syncMsg = m;
+  const el = document.getElementById("sync");
+  if (el) el.textContent = m;
+}
+
+function topbar() {
+  let right = "";
+  if (sb && user) {
+    right = `<div class="acct"><span class="who">${esc(user.email || "")}</span><span id="sync" class="sync">${esc(syncMsg)}</span>` +
+      `<button type="button" class="link" data-auth="out">Sign out</button></div>`;
+  } else if (sb) {
+    right = `<div class="acct"><button type="button" class="link" data-auth="in">Sign in to sync</button></div>`;
+  }
+  return `<div class="topbar"><h1>Training</h1>${right}</div>`;
+}
+
+function normalizeState(b) {
+  if (!b || typeof b !== "object") b = {};
+  if (!PROGRAMS[b.program]) b.program = "split4";
+  if (!b.weights || typeof b.weights !== "object") b.weights = {};
+  if (!b.done || typeof b.done !== "object") b.done = {};
+  if (!b.history || typeof b.history !== "object") b.history = {};
+  if (!Array.isArray(b.body)) b.body = [];
+  if (!Array.isArray(b.runs)) b.runs = [];
+  if (!JS_DAYS.includes(b.bodyDay)) b.bodyDay = "sun";
+  if (!b.custom || typeof b.custom !== "object") b.custom = {};
+  if (!b.custom.sessions || typeof b.custom.sessions !== "object") b.custom.sessions = {};
+  if (!b.custom.week || typeof b.custom.week !== "object") b.custom.week = {};
+  const wk = weekKey() + "|";
+  Object.keys(b.done).forEach((k) => { if (!k.startsWith(wk)) delete b.done[k]; });
+  return b;
+}
+
+function replaceState(obj) {
+  Object.keys(state).forEach((k) => { delete state[k]; });
+  Object.assign(state, obj);
+}
+
+function mergeState(loc, remote) {
+  const out = normalizeState(JSON.parse(JSON.stringify(remote || {})));
+  out.weights = Object.assign({}, loc.weights, out.weights);
+  out.done = Object.assign({}, loc.done, out.done);
+  Object.keys(loc.history).forEach((k) => {
+    const lh = loc.history[k];
+    const rh = out.history[k];
+    if (!rh) { out.history[k] = lh; return; }
+    lh.e.forEach((x) => { if (!rh.e.some((y) => y.d === x.d)) rh.e.push(x); });
+    rh.e.sort((p, q) => (p.d < q.d ? -1 : 1));
+  });
+  loc.body.forEach((x) => { if (!out.body.some((y) => y.w === x.w)) out.body.push(x); });
+  out.body.sort((p, q) => (p.d < q.d ? -1 : 1));
+  loc.runs.forEach((x) => { if (!out.runs.some((y) => y.id === x.id)) out.runs.push(x); });
+  out.runs.sort((p, q) => p.id - q.id);
+  out.custom.sessions = Object.assign({}, loc.custom.sessions, out.custom.sessions);
+  Object.keys(loc.custom.week).forEach((p) => {
+    out.custom.week[p] = Object.assign({}, loc.custom.week[p], out.custom.week[p]);
+  });
+  return out;
+}
+
+function schedulePush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushNow, 1200);
+  setSync("Saving...");
+}
+
+async function pushNow() {
+  if (!sb || !user) return;
+  clearTimeout(pushTimer);
+  if (pushing) { pushTimer = setTimeout(pushNow, 800); return; }
+  pushing = true;
+  try {
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const sentAt = new Date().toISOString();
+    const res = await sb.from("user_data").upsert({ user_id: user.id, data: snapshot, updated_at: sentAt });
+    if (res.error) throw res.error;
+    lastAt = Date.parse(sentAt);
+    if (JSON.stringify(state) === JSON.stringify(snapshot)) setDirty(false);
+    setSync("Saved");
+  } catch (e) {
+    const m = e && e.message ? e.message : "";
+    setSync(/JWT|401/i.test(m) ? "Session expired. Sign out and back in." : "Offline, will retry");
+  }
+  pushing = false;
+}
+
+async function onSignedIn(session, mode) {
+  user = session.user;
+  try { localStorage.removeItem(GUEST_KEY); } catch (e) {}
+  $app.innerHTML = topbar() + `<p class="blurb">Loading your data...</p>`;
+  try {
+    const r = await sb.from("user_data").select("data, updated_at").eq("user_id", user.id).maybeSingle();
+    if (r.error) throw r.error;
+    const has = r.data && r.data.data && typeof r.data.data === "object" && Object.keys(r.data.data).length > 0;
+    let needPush = !has;
+    if (has) {
+      lastAt = Date.parse(r.data.updated_at) || 0;
+      if (mode === "merge" || isDirty()) { replaceState(mergeState(state, r.data.data)); needPush = true; }
+      else replaceState(normalizeState(JSON.parse(JSON.stringify(r.data.data))));
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+    if (needPush) { setDirty(true); await pushNow(); }
+    setSync("Synced");
+  } catch (e) {
+    setSync("Offline. Using the data on this device.");
+  }
+  render();
+}
+
+function showAuth(msg) {
+  $app.innerHTML = `<div class="topbar"><h1>Training</h1></div>` +
+    `<p class="blurb">Sign in to save your progress and use it on any device.</p>` +
+    `<section class="hcard">` +
+    `<div class="ctl2"><label for="aEmail">Email</label><input id="aEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none"></div>` +
+    `<div class="ctl2"><label for="aPass">Password (6 or more characters)</label><input id="aPass" type="password" autocomplete="current-password"></div>` +
+    `<div class="inl2"><button type="button" class="btn" data-auth="signin">Sign in</button>` +
+    `<button type="button" class="btn2" data-auth="signup">Create account</button></div>` +
+    `<p class="hd" id="aMsg">${esc(msg || "")}</p></section>` +
+    `<button type="button" class="reset" data-auth="guest">Continue without an account (this device only)</button>`;
+}
+
+async function doAuth(kind) {
+  const email = document.getElementById("aEmail").value.trim();
+  const pass = document.getElementById("aPass").value;
+  const msg = document.getElementById("aMsg");
+  if (!email || !pass) { msg.textContent = "Enter your email and a password."; return; }
+  if (kind === "signup" && pass.length < 6) { msg.textContent = "Use a password with at least 6 characters."; return; }
+  msg.textContent = kind === "signup" ? "Creating your account..." : "Signing in...";
+  try {
+    const res = kind === "signup"
+      ? await sb.auth.signUp({ email, password: pass })
+      : await sb.auth.signInWithPassword({ email, password: pass });
+    if (res.error) { msg.textContent = res.error.message; return; }
+    if (res.data && res.data.session) { await onSignedIn(res.data.session, "merge"); return; }
+    msg.textContent = "Account created. Check your email to confirm it, then sign in.";
+  } catch (e) {
+    msg.textContent = "Could not reach the server. Check your connection and try again.";
+  }
+}
+
+async function doSignOut() {
+  await pushNow();
+  if (isDirty()) { setSync("Could not save yet. Connect and try again."); return; }
+  try { await sb.auth.signOut(); } catch (e) {}
+  user = null;
+  try {
+    localStorage.removeItem(KEY);
+    localStorage.removeItem(DIRTY_KEY);
+    localStorage.removeItem(GUEST_KEY);
+  } catch (e) {}
+  location.reload();
+}
+
+$app.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "aPass") doAuth("signin");
+});
+
+window.addEventListener("online", () => { if (user && isDirty()) pushNow(); });
+
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !sb || !user) return;
+  if (isDirty()) { pushNow(); return; }
+  try {
+    const r = await sb.from("user_data").select("data, updated_at").eq("user_id", user.id).maybeSingle();
+    if (r.error || !r.data || !r.data.data) return;
+    if (!(Date.parse(r.data.updated_at) > lastAt) || isDirty()) return;
+    lastAt = Date.parse(r.data.updated_at);
+    replaceState(normalizeState(JSON.parse(JSON.stringify(r.data.data))));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    const a = document.activeElement;
+    if (!editing && !(a && a.tagName === "INPUT")) render();
+  } catch (e) {}
+});
+
+async function boot() {
+  if (!sb) { render(); return; }
+  try {
+    const r = await sb.auth.getSession();
+    if (r.data && r.data.session) { await onSignedIn(r.data.session, "auto"); return; }
+  } catch (e) {}
+  let guest = false;
+  try { guest = localStorage.getItem(GUEST_KEY) === "1"; } catch (e) {}
+  if (guest) render(); else showAuth();
+}
+
+boot();
 </script>
 </body>
 </html>
