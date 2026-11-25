@@ -322,6 +322,15 @@ details[open]>summary::after{content:"\2212"}
 .dmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}
 .dmeta button{background:none;border:0;color:var(--muted);text-decoration:underline;min-height:36px;font-size:12px;padding:0}
 .runlog + .list{border-top:1px solid var(--line)}
+
+/* iPhone date fields: keep them the same width as the other boxes, left aligned */
+input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:44px;margin:0;text-align:left;line-height:normal}
+input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+input[type="date"]::-webkit-datetime-edit{padding:0}
+.ctl2,.rf,.rf label,.rf .fg,.ctl,.fg2{grid-template-columns:minmax(0,1fr)}
+.r2{grid-template-columns:repeat(3,minmax(0,1fr))}
+.r3,.dstats.two,.inl2,.inl3{grid-template-columns:repeat(2,minmax(0,1fr))}
+.inl,.add{grid-template-columns:minmax(0,1fr) 84px}
 .howbtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12px;font-weight:500;color:var(--ink)}
 #sheet:empty{display:none}
 .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
