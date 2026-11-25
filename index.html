@@ -348,7 +348,7 @@ details[open]>summary::after{content:"\2212"}
 const SESSIONS = {
   combat: {
     title: "Kickboxing / MMA", kind: "combat",
-    note: "2 hours. This is your hardest leg day, so keep Tuesday light.",
+    note: "Hard session. Keep the next day light on the legs.",
     items: []
   },
   run5: {
@@ -894,6 +894,73 @@ function registerCustom(list) {
   });
 }
 
+const LEGACY_NAMES = {
+  "Leg press (moderate)": "Leg press",
+  "Weighted pull-up or pulldown": "Weighted pull-up",
+  "Squat or hack squat": "Hack squat",
+  "Incline machine or Smith press": "Smith incline press",
+  "Leg press or Bulgarian split squat": "Leg press",
+  "Cable crunch or Pallof press": "Cable crunch",
+  "Back extension or lying leg curl": "Back extension",
+  "45\u00b0 back extension": "Back extension",
+  "Walking lunge or step-up": "Walking lunge",
+  "Incline cable or pec deck fly": "Incline cable fly",
+  "Spanish squat hold or wall sit": "Spanish squat hold",
+  "Backward sled drag or incline walk": "Backward sled drag"
+};
+function migrateLegacy(st) {
+  if (!st || typeof st !== "object") return false;
+  let changed = false;
+  const rename = (it) => {
+    if (!it) return;
+    if (LEGACY_NAMES[it.n]) { it.n = LEGACY_NAMES[it.n]; changed = true; }
+    if (it.alt && LEGACY_NAMES[it.alt]) { it.alt = LEGACY_NAMES[it.alt]; changed = true; }
+  };
+  Object.keys(LEGACY_NAMES).forEach((oldName) => {
+    const newName = LEGACY_NAMES[oldName];
+    const os = slug(oldName), ns = slug(newName);
+    if (os === ns) return;
+    const h = st.history && st.history[os];
+    if (h && Array.isArray(h.e)) {
+      const t = st.history[ns] || (st.history[ns] = { n: newName, e: [] });
+      t.n = newName;
+      h.e.forEach((x) => {
+        const m = t.e.find((y) => y.d === x.d);
+        if (!m) t.e.push(x);
+        else {
+          if ((x.kg || 0) > (m.kg || 0)) m.kg = x.kg;
+          if (!m.sets && x.sets) m.sets = x.sets;
+        }
+      });
+      t.e.sort((a, b) => (a.d < b.d ? -1 : 1));
+      delete st.history[os];
+      changed = true;
+    }
+    if (st.weights && st.weights[os] != null) {
+      if (st.weights[ns] == null) st.weights[ns] = st.weights[os];
+      delete st.weights[os];
+      changed = true;
+    }
+    if (st.done) {
+      const suf = "|" + os;
+      Object.keys(st.done).forEach((k) => {
+        if (k.length > suf.length && k.slice(-suf.length) === suf) {
+          st.done[k.slice(0, -suf.length) + "|" + ns] = st.done[k];
+          delete st.done[k];
+          changed = true;
+        }
+      });
+    }
+  });
+  if (st.custom && st.custom.sessions) {
+    Object.keys(st.custom.sessions).forEach((sid) => { if (Array.isArray(st.custom.sessions[sid])) st.custom.sessions[sid].forEach(rename); });
+  }
+  (st.customPrograms || []).forEach((cp) => {
+    if (cp && cp.sessions) Object.keys(cp.sessions).forEach((k) => { const ss = cp.sessions[k]; if (ss && Array.isArray(ss.items)) ss.items.forEach(rename); });
+  });
+  return changed;
+}
+
 function load() {
   const base = { program: "fb3", weights: {}, done: {} };
   try {
@@ -912,6 +979,7 @@ function load() {
   if (!Array.isArray(base.customPrograms)) base.customPrograms = [];
   registerCustom(base.customPrograms);
   if (!PROGRAMS[base.program]) base.program = "fb3";
+  migrateLegacy(base);
   return base;
 }
 function save() {
@@ -2162,7 +2230,23 @@ const GOAL_TAGS = { lose: ["fat"], muscle: ["muscle"], both: ["fat", "muscle"], 
 const TAG_LABELS = { muscle: "building muscle", fat: "losing fat", strength: "getting stronger", cardio: "cardio", sport: "sports performance", health: "staying healthy" };
 const LEVELS = [["new", "New to lifting (under 6 months)"], ["some", "Some experience (6 months to 2 years)"], ["experienced", "Experienced (2+ years)"]];
 const EQUIP = [["gym", "Full gym"], ["home", "At home (dumbbells and bodyweight)"]];
-const ACTS = [["run", "Running"], ["combat", "Kickboxing, MMA or boxing"], ["other", "Other sports"]];
+const ACTS = [["run", "Running"], ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["mma", "MMA"], ["bjj", "BJJ (Brazilian jiu-jitsu)"], ["othercombat", "Other combat sport"], ["other", "Other sports"]];
+const COMBAT_INFO = {
+  boxing: { title: "Boxing", note: "Shoulders and legs take a beating. Keep upper-body work moderate the next day." },
+  kickboxing: { title: "Kickboxing", note: "Legs, hips and neck take the load. Keep leg work light the next day." },
+  mma: { title: "MMA", note: "Striking and grappling together. Go easy on heavy pulling and hinging the next day." },
+  bjj: { title: "BJJ", note: "Grips, neck and hips get worked. Go easy on heavy pulling and hinging the next day." },
+  othercombat: { title: "Combat training", note: "Hard session. Keep the next day's training lighter." },
+  combat: { title: "Kickboxing / MMA", note: "Hard session. Keep the next day light on the legs." }
+};
+function hasCombat(acts) { return (acts || []).some((a) => !!COMBAT_INFO[a]); }
+function syncCombat() {
+  const sel = ((state.profile && state.profile.acts) || []).filter((a) => !!COMBAT_INFO[a]);
+  const c = SESSIONS.combat;
+  if (!sel.length) { c.title = COMBAT_INFO.combat.title; c.note = COMBAT_INFO.combat.note; return; }
+  c.title = sel.map((a) => COMBAT_INFO[a].title).join(" / ");
+  c.note = sel.length === 1 ? COMBAT_INFO[sel[0]].note : "Hard session. Keep the next day's training lighter.";
+}
 
 function syncGoal() { GOAL_KM = (state.profile && state.profile.kmGoal) || 15; }
 
@@ -2189,7 +2273,7 @@ function profileForAI() {
     experience: lab(LEVELS, p.level),
     daysPerWeek: p.days ? Number(p.days) : undefined,
     equipment: lab(EQUIP, p.equip),
-    otherActivities: (p.acts || []).map((a) => lab(ACTS, a))
+    otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Kickboxing / MMA" : a))
   };
 }
 
@@ -2221,7 +2305,7 @@ function profileView() {
     `<div class="ctl2"><label for="pDays">Days per week you can train</label>${sel("pDays", dayOpts, p.days, "Choose")}</div>` +
     `<div class="ctl2"><label for="pLevel">Experience with lifting</label>${sel("pLevel", LEVELS, p.level, "Choose")}</div>` +
     `<div class="ctl2"><label for="pEquip">Where you train</label>${sel("pEquip", EQUIP, p.equip, "Choose")}</div>` +
-    `<div class="fg2"><span class="fl2">Other activities (optional)</span><div class="chips">${chk("pact", ACTS, p.acts)}</div></div>` +
+    `<div class="fg2"><span class="fl2">Sports and activities (optional)</span><div class="chips">${chk("pact", ACTS, (p.acts || []).map((a) => (a === "combat" ? "kickboxing" : a)))}</div></div>` +
     `<div class="ctl2"><label for="pKmGoal">Weekly running or cardio distance goal in km (optional)</label><input id="pKmGoal" type="text" inputmode="decimal" placeholder="15" value="${p.kmGoal || ""}" autocomplete="off"></div>` +
     `<p class="hd">Stored in your account. Only your age, sex, height, goals and training details are shared with the AI coach. Your name and exact birth date are not.</p>` +
     `<button type="button" class="btn gbtn" data-psave="1">Save</button>` +
@@ -2281,7 +2365,7 @@ function scoreProgram(id, p) {
   const acts = p.acts || [];
   const age = ageOf(p.dob);
   let s = 0;
-  if (m.combat) { if (acts.indexOf("combat") >= 0) s += 6; else return -99; }
+  if (m.combat) { if (hasCombat(acts)) s += 6; else return -99; }
   if (m.runner) { if (acts.indexOf("run") >= 0) s += 3; else if (tags.indexOf("cardio") >= 0) s += 2; }
   if (m.equip === "gym" && p.equip === "home") return -99;
   if (m.equip === "home" && p.equip !== "home") s -= 4;
@@ -2370,6 +2454,7 @@ function dayDone(d, wd) {
 
 function render() {
   syncGoal();
+  syncCombat();
   if (!pview && incomingData) pview = "import";
   if (pview === "create") { $app.innerHTML = topbar() + createView(); return; }
   if (pview === "share") { $app.innerHTML = topbar() + shareView(); return; }
@@ -2724,6 +2809,7 @@ function normalizeState(b) {
   if (!b.custom.week || typeof b.custom.week !== "object") b.custom.week = {};
   const wk = weekKey() + "|";
   Object.keys(b.done).forEach((k) => { if (!k.startsWith(wk)) delete b.done[k]; });
+  migrateLegacy(b);
   return b;
 }
 
