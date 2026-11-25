@@ -1925,6 +1925,98 @@ function counts(sid, ds) {
   return { done, total: items.length };
 }
 
+function hitTopTwice(it) {
+  const pr = planRange(it.s);
+  const h = state.history[slug(it.n)];
+  if (!pr || !h) return false;
+  const d = entryDate();
+  const prev = h.e.filter((x) => x.d < d && x.sets && x.sets.some((s) => s.reps));
+  if (prev.length < 2) return false;
+  const two = prev.slice(-2);
+  return two.every((x) => x.sets.filter((s) => s.reps).every((s) => s.reps >= pr.hi)) && two[1].kg > 0;
+}
+
+// Trends worked out in the app, so the AI explains and prioritises instead of guessing.
+function insightSignals() {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const today = ymd(new Date());
+  const dd = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+  const cur = weekKey();
+  const m0 = new Date(cur + "T00:00:00");
+  const prev = ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() - 7));
+  const out = {};
+
+  const stalled = [], progressing = [], ready = [];
+  getItems(getSid(selected)).filter((i) => !i.opt).forEach((it) => {
+    const h = state.history[slug(it.n)];
+    const seq = h ? h.e.filter((x) => x.kg > 0).map((x) => x.kg) : [];
+    if (seq.length < 2) return;
+    const last = seq[seq.length - 1];
+    let flat = 0;
+    for (let i = seq.length - 1; i >= 0 && seq[i] === last; i--) flat++;
+    if (flat >= 3) stalled.push({ exercise: it.n, sessionsAtThisWeight: flat, weightKg: last });
+    const base = seq[Math.max(0, seq.length - 4)];
+    if (last > base) progressing.push({ exercise: it.n, fromKg: base, toKg: last, over: Math.min(4, seq.length) + " sessions" });
+    if (hitTopTwice(it)) ready.push(it.n);
+  });
+  out.stalledLifts = stalled;
+  out.progressingLifts = progressing;
+  out.readyToAddWeight = ready;
+
+  const ew = effectiveWeek(state.program);
+  const inProg = new Set();
+  DAY_KEYS.forEach((d) => getItems(ew[d]).forEach((it) => inProg.add(it.n)));
+  out.notTrainedRecently = Object.keys(state.history).map((k) => state.history[k])
+    .filter((h) => inProg.has(h.n) && h.e.length >= 2)
+    .map((h) => ({ exercise: h.n, daysSinceLast: dd(h.e[h.e.length - 1].d, today) }))
+    .filter((x) => x.daysSinceLast >= 14)
+    .sort((a, b) => b.daysSinceLast - a.daysSinceLast).slice(0, 5);
+
+  let lastDate = "";
+  const daysOf = (wk) => {
+    const s = new Set();
+    Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (x.d > lastDate) lastDate = x.d; if (wkOf(x.d) === wk) s.add(x.d); }));
+    state.runs.forEach((r) => { if (r.d > lastDate) lastDate = r.d; if (r.w === wk) s.add(r.d); });
+    state.combat.forEach((c) => { if (c.d > lastDate) lastDate = c.d; if (c.w === wk) s.add(c.d); });
+    return s.size;
+  };
+  const thisWeekDays = daysOf(cur), lastWeekDays = daysOf(prev);
+  out.trainingDays = { thisWeek: thisWeekDays, lastWeek: lastWeekDays, daysSinceLastLogged: lastDate ? dd(lastDate, today) : undefined };
+
+  if (state.runs.length) {
+    const kmBy = {};
+    state.runs.forEach((r) => { kmBy[r.w] = (kmBy[r.w] || 0) + r.km; });
+    const now = kmBy[cur] || 0, was = kmBy[prev] || 0;
+    const rr = state.runs.slice().sort((a, b) => a.id - b.id);
+    const avg = (a) => a.reduce((t, x) => t + x, 0) / a.length;
+    const o = { kmThisWeek: r2(now), kmLastWeek: r2(was), weeklyGoalKm: GOAL_KM, weekOverWeekPercent: was ? Math.round(((now - was) / was) * 100) : undefined, runsLogged: rr.length };
+    if (rr.length >= 4) {
+      const n = Math.min(3, Math.floor(rr.length / 2));
+      const a = rr.slice(-n), b = rr.slice(-2 * n, -n);
+      o.paceChangeSecPerKm = Math.round(avg(a.map((x) => x.sec / x.km)) - avg(b.map((x) => x.sec / x.km)));
+      const ah = a.filter((x) => x.hr).map((x) => x.hr), bh = b.filter((x) => x.hr).map((x) => x.hr);
+      if (ah.length && bh.length) o.avgHeartRateChangeBpm = Math.round(avg(ah) - avg(bh));
+      o.paceNote = "a negative pace change means faster";
+    }
+    out.running = o;
+  }
+
+  if (state.body.length >= 3) {
+    const bw = state.body;
+    const a = bw[Math.max(0, bw.length - 6)], z = bw[bw.length - 1];
+    const wks = Math.max(1, dd(a.d, z.d) / 7);
+    out.bodyWeight = { latestKg: z.kg, changeKgPerWeek: r2((z.kg - a.kg) / wks), weighIns: bw.length };
+  }
+
+  if (state.combat.length) {
+    const mins = (wk) => state.combat.filter((x) => x.w === wk).reduce((t, x) => t + x.min, 0);
+    out.combat = { minutesThisWeek: mins(cur), minutesLastWeek: mins(prev) };
+  }
+
+  Object.keys(out).forEach((k) => { if (Array.isArray(out[k]) && !out[k].length) delete out[k]; });
+  return out;
+}
+
 function insightPayload() {
   const prog = PROGRAMS[state.program];
   const sid = getSid(selected);
@@ -1964,6 +2056,7 @@ function insightPayload() {
     sessionType: s.kind,
     goals: String(state.goals || "").slice(0, 200),
     profile: profileForAI(),
+    signals: insightSignals(),
     units: unitW(),
     weeklyRunGoalKm: GOAL_KM,
     runKmThisWeek: Math.round(weekKm * 100) / 100,
@@ -2023,6 +2116,66 @@ async function getInsight() {
     out.textContent = "Could not reach the server. Try again.";
     if (btn) btn.disabled = false;
   }
+}
+
+function runCoachPayload() {
+  const p = insightPayload();
+  delete p.exercises; delete p.otherExercisesLogged; delete p.bodyWeights;
+  p.mode = "run";
+  const rr = state.runs.slice().sort((a, b) => a.id - b.id);
+  const monthly = {};
+  rr.forEach((r) => { const k = r.d.slice(0, 7); monthly[k] = (monthly[k] || 0) + r.km; });
+  let longest = null, fastest = null;
+  rr.forEach((r) => {
+    if (!longest || r.km > longest.km) longest = r;
+    if (r.km >= 3) { const pc = r.sec / r.km; if (!fastest || pc < fastest.p) fastest = { p: pc, r }; }
+  });
+  const cut = new Date(); cut.setDate(cut.getDate() - 28);
+  const recent = rr.filter((r) => r.d >= ymd(cut)).length;
+  p.runStats = {
+    totalRunsLogged: rr.length,
+    monthlyKm: Object.keys(monthly).sort().slice(-6).map((k) => ({ month: k, km: Math.round(monthly[k] * 10) / 10 })),
+    longestRun: longest ? { km: longest.km, date: longest.d } : undefined,
+    fastestPaceOn3kmPlus: fastest ? { secPerKm: Math.round(fastest.p), km: fastest.r.km, date: fastest.r.d } : undefined,
+    runsPerWeekLast4Weeks: Math.round((recent / 4) * 10) / 10
+  };
+  return p;
+}
+async function getRunCoach() {
+  const out = document.getElementById("runCoachMsg");
+  const btn = document.querySelector("[data-runcoach]");
+  if (!sb || !user) { out.textContent = "Sign in to use the run coach."; return; }
+  out.textContent = "Thinking...";
+  if (btn) btn.disabled = true;
+  try {
+    const s = await sb.auth.getSession();
+    const token = s.data && s.data.session ? s.data.session.access_token : "";
+    const res = await fetch("/api/insight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(runCoachPayload())
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || !data || !data.insight) {
+      out.textContent = (data && data.error) || "The run coach works on your live site.";
+      if (btn) btn.disabled = false;
+      return;
+    }
+    state.lastRunCoach = { at: ymd(new Date()), text: data.insight };
+    save();
+    render();
+  } catch (e) {
+    out.textContent = "Could not reach the server. Try again.";
+    if (btn) btn.disabled = false;
+  }
+}
+function runCoachCard() {
+  const rc = state.lastRunCoach;
+  return `<section class="hcard"><div class="hrow"><h3 class="hn">Run coach</h3></div>` +
+    `<p class="hd">Looks at your recent runs and plans your next three. It works with whatever you have logged.</p>` +
+    `<button type="button" class="btn gbtn" data-runcoach="1">Get run coach</button><p class="iout" id="runCoachMsg"></p>` +
+    (rc ? `<p class="iout">${esc(rc.text)}</p><p class="hd">${fmtDate(rc.at)}</p>` : "") + `</section>`;
 }
 
 function insightCard() {
@@ -2457,7 +2610,15 @@ function profileForAI() {
     experience: lab(LEVELS, p.level),
     daysPerWeek: p.days ? Number(p.days) : undefined,
     equipment: lab(EQUIP, p.equip),
-    otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Combat sports" : a))
+    otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Combat sports" : a)),
+    runningGoal: p.raceType ? ({ "5k": "5k race", "10k": "10k race", half: "Half marathon", marathon: "Marathon" })[p.raceType] : undefined,
+    weeksToRace: (() => {
+      if (!p.raceType || !p.raceDate) return undefined;
+      const days = Math.round((new Date(p.raceDate + "T00:00:00") - new Date(ymd(new Date()) + "T00:00:00")) / 86400000);
+      return days >= 0 ? Math.round((days / 7) * 10) / 10 : undefined;
+    })(),
+    maxHeartRateBpm: p.maxHr || undefined,
+    maxHeartRateSource: p.maxHr ? (p.maxHrEst ? "estimate from age" : "entered by the user") : undefined
   };
 }
 
@@ -2491,6 +2652,12 @@ function profileView() {
     `<div class="ctl2"><label for="pEquip">Where you train</label>${sel("pEquip", EQUIP, p.equip, "Choose")}</div>` +
     `<div class="fg2"><span class="fl2">Sports and activities (optional)</span><div class="chips">${chk("pact", ACTS, (p.acts || []).map((a) => (a === "combat" ? "kickboxing" : a)))}</div></div>` +
     `<div class="ctl2"><label for="pKmGoal">Weekly running or cardio distance goal in km (optional)</label><input id="pKmGoal" type="text" inputmode="decimal" placeholder="15" value="${p.kmGoal || ""}" autocomplete="off"></div>` +
+    `<div class="ctl2"><label for="pRace">Running goal (optional)</label><select id="pRace">` +
+    [["", "Just build weekly distance"], ["5k", "5k race"], ["10k", "10k race"], ["half", "Half marathon"], ["marathon", "Marathon"]].map((o) => `<option value="${o[0]}"${o[0] === (p.raceType || "") ? " selected" : ""}>${o[1]}</option>`).join("") + `</select></div>` +
+    `<div class="ctl2" id="pRaceWrap"${p.raceType ? "" : " hidden"}><label for="pRaceDate">Race date</label><input id="pRaceDate" type="date" value="${esc(p.raceDate || "")}" min="${ymd(new Date())}"></div>` +
+    `<div class="ctl2"><label for="pMaxHr">Max heart rate in bpm (optional)</label><input id="pMaxHr" type="text" inputmode="numeric" placeholder="Leave blank if unsure" value="${p.maxHr || ""}" data-est="${p.maxHrEst ? "1" : "0"}" autocomplete="off">` +
+    `<button type="button" class="btn2" data-hrest="1">Estimate from my age</button>` +
+    `<p class="hd">A max heart rate measured on a hard effort is better than an estimate. If you are unsure, leave it blank and the run coach will use effort words instead.</p></div>` +
     `<p class="hd">Stored in your account. Only your age, sex, height, goals and training details are shared with the AI coach. Your name and exact birth date are not.</p>` +
     `<button type="button" class="btn gbtn" data-psave="1">Save</button>` +
     (first ? `<button type="button" class="btn2 gbtn" data-pskip="1">Skip for now</button>` : `<button type="button" class="btn2 gbtn" data-pcancel="1">Cancel</button>`) +
@@ -2509,7 +2676,11 @@ function readProfile() {
     goals: Array.prototype.map.call(document.querySelectorAll("[data-pgoal]:checked"), (e) => e.dataset.pgoal),
     days: v("pDays"), level: v("pLevel"), equip: v("pEquip"),
     acts: Array.prototype.map.call(document.querySelectorAll("[data-pact]:checked"), (e) => e.dataset.pact),
-    kmGoal: kmGoal > 0 && kmGoal < 1000 ? kmGoal : 0
+    kmGoal: kmGoal > 0 && kmGoal < 1000 ? kmGoal : 0,
+    raceType: v("pRace"),
+    raceDate: v("pRace") ? v("pRaceDate") : "",
+    maxHr: parseInt(v("pMaxHr"), 10) || 0,
+    maxHrEst: !!(document.getElementById("pMaxHr") && document.getElementById("pMaxHr").dataset.est === "1")
   };
 }
 
@@ -2530,6 +2701,9 @@ function saveProfile() {
   if (age === null || age > 100 || age < 0) { msg.textContent = "Check the date of birth."; return; }
   if (age < 13) { msg.textContent = "This app is for people 13 and older."; return; }
   if (p.heightCm < 100 || p.heightCm > 250) { msg.textContent = "Check the height."; return; }
+  if (p.maxHr && (p.maxHr < 120 || p.maxHr > 230)) { msg.textContent = "Check the max heart rate. It is usually between 150 and 210."; return; }
+  if (p.raceType && p.raceDate && p.raceDate < ymd(new Date())) { msg.textContent = "Pick a race date in the future, or clear the race."; return; }
+  if (!p.maxHr) p.maxHrEst = false;
   const first = !state.profile;
   state.profile = p;
   state.profileSkip = false;
@@ -2705,6 +2879,7 @@ function render() {
       ((n) => (n && !editing ? `<div class="complete">${CHECK_ICON}<span>${n} ${s.kind === "run" ? (n === 1 ? "run" : "runs") : (n === 1 ? "session" : "sessions")} logged for ${FULL[selected]}. Nice work.</span></div>` : ""))(s.kind === "combat" ? combatOn(wd[selected].ds).length : (s.kind === "run" ? state.runs.filter((r) => r.d === wd[selected].ds).length : 0)) +
       body +
     `</section>` +
+    ((s.kind === "run" || (prog.runWith && prog.runWith[selected])) && !editing ? runCoachCard() : "") +
     insightCard() +
     `<section class="hcard"><h3 class="hn">Program</h3><p class="hd">${esc(prog.blurb)}</p><div class="pmenu">${seg}</div>${programActions()}</section>` +
     `<p class="foot">Checkmarks reset each Monday. Weights and edits are saved to your account when you are signed in, or on this device if not.</p>`;
@@ -2751,6 +2926,17 @@ $app.addEventListener("click", (e) => {
   if (up && PROGRAMS[up.dataset.usep]) {
     state.program = up.dataset.usep; customIdx = -1; editing = false; pview = "";
     save(); render(); window.scrollTo(0, 0); return;
+  }
+  if (e.target.closest("[data-runcoach]")) { getRunCoach(); return; }
+  if (e.target.closest("[data-hrest]")) {
+    const age = ageOf(document.getElementById("pDob").value);
+    const msg = document.getElementById("pMsg");
+    if (age === null || age < 5 || age > 100) { msg.textContent = "Enter your date of birth first, then tap Estimate."; return; }
+    const box = document.getElementById("pMaxHr");
+    box.value = Math.round(208 - 0.7 * age);
+    box.dataset.est = "1";
+    msg.textContent = "Filled in an estimate of " + box.value + " bpm. It can be off by about 10 beats either way.";
+    return;
   }
   if (e.target.closest("[data-insight]")) { getInsight(); return; }
   const au = e.target.closest("[data-auth]");
@@ -2837,6 +3023,7 @@ $app.addEventListener("change", (e) => {
     recordSet(parts[0], sk.dataset.sname, Number(parts[1]), isKg ? "kg" : "reps", sk.value);
     return;
   }
+  if (e.target.id === "pRace") { document.getElementById("pRaceWrap").hidden = !e.target.value; return; }
   if (e.target.id === "kSport") {
     state.combatSport = e.target.value;
     save();
@@ -2962,6 +3149,7 @@ $app.addEventListener("change", (e) => {
 });
 
 $app.addEventListener("input", (e) => {
+  if (e.target.id === "pMaxHr") { e.target.dataset.est = "0"; return; }
   const rf = e.target.closest("[data-rf]");
   if (rf) { if (rf.dataset.rf in runAuto) runAuto[rf.dataset.rf] = false; return; }
   const w = e.target.closest("[data-weight]");
@@ -3047,6 +3235,7 @@ function mergeState(loc, remote) {
   out.done = Object.assign({}, loc.done, out.done);
   if (!out.goals && loc.goals) out.goals = loc.goals;
   if (!out.lastInsight && loc.lastInsight) out.lastInsight = loc.lastInsight;
+  if (!out.lastRunCoach && loc.lastRunCoach) out.lastRunCoach = loc.lastRunCoach;
   if (!out.profile && loc.profile) out.profile = loc.profile;
   (loc.customPrograms || []).forEach((x) => { if (!out.customPrograms.some((y) => y.id === x.id)) out.customPrograms.push(x); });
   if (!out.wunit && loc.wunit) out.wunit = loc.wunit;
