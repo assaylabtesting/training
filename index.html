@@ -1607,6 +1607,9 @@ $app.addEventListener("change", (e) => {
   const key = cb.dataset.done;
   if (cb.checked) state.done[key] = true; else delete state.done[key];
   save();
+  const wrow = cb.closest(".row");
+  const wbox = wrow ? wrow.querySelector("[data-weight]") : null;
+  if (cb.checked && wbox && wbox.value) recordWeight(wbox.dataset.weight, wbox.dataset.wname, wbox.value);
   cb.closest(".row").classList.toggle("done", cb.checked);
   const sid = getSid(selected);
   const c = counts(sid);
