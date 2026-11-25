@@ -149,6 +149,8 @@ h1{font-family:var(--display);font-weight:600;font-size:36px;line-height:1;margi
 .chips{display:grid;gap:8px}
 .chip{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:15px;color:var(--ink)}
 .chip input{width:22px;height:22px;margin:0;accent-color:var(--gym-bg)}
+.chip.multi{align-items:flex-start;padding-top:9px;padding-bottom:9px;text-align:left}
+.chip.multi input{margin-top:2px;flex:none}
 .fg2{display:grid;gap:6px;margin-bottom:12px}
 .fl2{font-size:13px;color:var(--muted)}
 .hgrp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -1960,21 +1962,25 @@ function insightSignals() {
   const out = {};
 
   const stalled = [], progressing = [], ready = [];
-  getItems(getSid(selected)).filter((i) => !i.opt).forEach((it) => {
+  const ewk = effectiveWeek(state.program);
+  const todaySlugs = new Set(getItems(getSid(selected)).map((i) => slug(i.n)));
+  const seenSlug = new Set(), progItems = [];
+  DAY_KEYS.forEach((k) => getItems(ewk[k]).filter((i) => !i.opt).forEach((i) => { const sg = slug(i.n); if (!seenSlug.has(sg)) { seenSlug.add(sg); progItems.push(i); } }));
+  progItems.forEach((it) => {
     const h = state.history[slug(it.n)];
     const seq = h ? h.e.filter((x) => x.kg > 0).map((x) => x.kg) : [];
     if (seq.length < 2) return;
     const last = seq[seq.length - 1];
     let flat = 0;
     for (let i = seq.length - 1; i >= 0 && seq[i] === last; i--) flat++;
-    if (flat >= 3) stalled.push({ exercise: it.n, sessionsAtThisWeight: flat, weightKg: last });
+    if (flat >= 3) stalled.push({ exercise: it.n, sessionsAtThisWeight: flat, weightKg: last, inTodaysSession: todaySlugs.has(slug(it.n)) });
     const base = seq[Math.max(0, seq.length - 4)];
     if (last > base) progressing.push({ exercise: it.n, fromKg: base, toKg: last, over: Math.min(4, seq.length) + " sessions" });
     if (hitTopTwice(it)) ready.push(it.n);
   });
-  out.stalledLifts = stalled;
-  out.progressingLifts = progressing;
-  out.readyToAddWeight = ready;
+  out.stalledLifts = stalled.slice(0, 6);
+  out.progressingLifts = progressing.slice(0, 6);
+  out.readyToAddWeight = ready.slice(0, 6);
 
   const ew = effectiveWeek(state.program);
   const inProg = new Set();
@@ -2006,10 +2012,10 @@ function insightSignals() {
     if (rr.length >= 4) {
       const n = Math.min(3, Math.floor(rr.length / 2));
       const a = rr.slice(-n), b = rr.slice(-2 * n, -n);
-      o.paceChangeSecPerKm = Math.round(avg(a.map((x) => x.sec / x.km)) - avg(b.map((x) => x.sec / x.km)));
+      const dp = Math.round(avg(a.map((x) => x.sec / x.km)) - avg(b.map((x) => x.sec / x.km)));
+      o.paceChange = dp === 0 ? "no change" : Math.abs(dp) + " seconds per km " + (dp < 0 ? "faster" : "slower");
       const ah = a.filter((x) => x.hr).map((x) => x.hr), bh = b.filter((x) => x.hr).map((x) => x.hr);
       if (ah.length && bh.length) o.avgHeartRateChangeBpm = Math.round(avg(ah) - avg(bh));
-      o.paceNote = "a negative pace change means faster";
     }
     out.running = o;
   }
@@ -2030,6 +2036,121 @@ function insightSignals() {
   return out;
 }
 
+const BODY_PART = {};
+[
+  ["chest", ["Incline press (30\u00b0)", "Low-incline DB press", "Smith incline press", "Incline machine press", "Low-to-high cable fly", "Incline cable fly", "Pec deck fly", "Deficit push-up", "Barbell bench press", "Dumbbell bench press", "Push-up"]],
+  ["back", ["Weighted pull-up", "Lat pulldown", "Neutral-grip pulldown", "Chest-supported row", "One-arm row", "Seated cable row", "Barbell row", "Dumbbell row", "Back extension"]],
+  ["shoulders", ["Lateral raise", "Cable lateral raise", "Rear delt fly", "Face pull", "Overhead press", "Dumbbell shoulder press"]],
+  ["arms", ["Biceps curl", "Triceps pushdown", "Hammer curl", "Overhead triceps extension"]],
+  ["quads", ["Hack squat", "Squat", "Front squat", "Back squat", "Goblet squat", "Leg press", "Bulgarian split squat (per leg)", "Walking lunge", "Dumbbell lunge", "Step-up", "Leg extension", "Spanish squat hold", "Slow step-downs (3 sec lowering)", "Backward sled drag"]],
+  ["hamstrings and glutes", ["Romanian deadlift", "Dumbbell Romanian deadlift", "Deadlift", "Hip thrust", "Glute bridge", "Seated leg curl", "Lying leg curl", "Nordic curl"]],
+  ["calves", ["Standing calf raise", "Seated calf raise"]],
+  ["core", ["Cable crunch", "Pallof press", "Cable woodchop", "Hanging leg raise", "Plank"]],
+  ["neck", ["Neck flexion/extension (band)"]]
+].forEach((g) => g[1].forEach((n) => { BODY_PART[n] = g[0]; }));
+function partOf(n) { return BODY_PART[n] || "other"; }
+function plannedSets(plan) {
+  const m = /^\s*(\d+)(?:\s*-\s*\d+)?\s*x/i.exec(String(plan || ""));
+  return m ? Number(m[1]) : 0;
+}
+function swapOptionsFor(name, inProgram) {
+  const part = partOf(name);
+  if (part === "other") return [];
+  return LIBRARY.filter((n) => n !== name && partOf(n) === part && !inProgram.has(n)).slice(0, 4);
+}
+
+// Plain facts about the whole week. No advice: the coach decides what they mean.
+function coachFacts() {
+  const ew = effectiveWeek(state.program);
+  const tk = todayKey();
+  const idx = DAY_KEYS.indexOf(tk);
+  const tomKey = DAY_KEYS[(idx + 1) % 7], yesKey = DAY_KEYS[(idx + 6) % 7];
+  const now = new Date();
+  const tDate = ymd(now), yDate = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const loggedOn = (ds) => {
+    let ex = 0;
+    Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (x.d === ds) ex++; }));
+    return {
+      exercisesLogged: ex,
+      runKm: Math.round(state.runs.filter((r) => r.d === ds).reduce((t, r) => t + r.km, 0) * 100) / 100,
+      combatMinutes: state.combat.filter((c) => c.d === ds).reduce((t, c) => t + c.min, 0)
+    };
+  };
+  const sess = (key) => { const ss = SESSIONS[ew[key]]; return { day: FULL[key], session: ss ? ss.title : "Rest", type: ss ? ss.kind : "rest" }; };
+  const week = DAY_KEYS.map((key) => {
+    const sid = ew[key], ss = SESSIONS[sid];
+    return {
+      day: FULL[key], isToday: key === tk, isTomorrow: key === tomKey, isYesterday: key === yesKey,
+      session: ss ? ss.title : "Rest", type: ss ? ss.kind : "rest",
+      exercises: ss ? getItems(sid).filter((i) => !i.opt).map((i) => ({ exercise: i.n, plan: i.s, bodyPart: partOf(i.n) })) : []
+    };
+  });
+  const sets = {};
+  DAY_KEYS.forEach((key) => getItems(ew[key]).filter((i) => !i.opt).forEach((i) => { const pt = partOf(i.n); const n = plannedSets(i.s); if (n) sets[pt] = (sets[pt] || 0) + n; }));
+  const cur = weekKey();
+  const m0 = new Date(cur + "T00:00:00");
+  const dayCount = (wk) => {
+    const set = new Set();
+    Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (wkOf(x.d) === wk) set.add(x.d); }));
+    state.runs.forEach((r) => { if (r.w === wk) set.add(r.d); });
+    state.combat.forEach((c) => { if (c.w === wk) set.add(c.d); });
+    return set.size;
+  };
+  const weekAgo = (i) => ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() - 7 * i));
+  const perWeek = [];
+  for (let i = 5; i >= 0; i--) perWeek.push(dayCount(weekAgo(i)));
+  let streak = 0;
+  for (let i = 1; i <= 12; i++) { if (dayCount(weekAgo(i)) >= 2) streak++; else break; }
+  return {
+    week,
+    tomorrow: sess(tomKey),
+    yesterday: Object.assign(sess(yesKey), { logged: loggedOn(yDate) }),
+    loggedToday: loggedOn(tDate),
+    plannedSetsPerWeekByBodyPart: sets,
+    trainingDaysPerWeekLast6: perWeek,
+    consecutiveCompletedWeeksWith2PlusTrainingDays: streak
+  };
+}
+function coachPayload() {
+  const p = insightPayload();
+  p.mode = "coach";
+  p.viewingDay = FULL[selected];
+  const rp = runCoachPayload();
+  p.runStats = rp.runStats;
+  p.runContext = rp.runContext;
+  Object.assign(p, coachFacts());
+  const ew = effectiveWeek(state.program);
+  const inProg = new Set();
+  DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => inProg.add(i.n)));
+  if (p.signals && p.signals.stalledLifts) {
+    p.signals.stalledLifts.forEach((st) => {
+      st.bodyPart = partOf(st.exercise);
+      const o = swapOptionsFor(st.exercise, inProg);
+      if (o.length) st.swapOptions = o;
+    });
+  }
+  return p;
+}
+function coachBasis(p) {
+  const L = [];
+  L.push("Viewing " + (p.viewingDay || "") + ": " + p.session + ". Today is " + p.todayWeekday + ".");
+  if (p.tomorrow) L.push("Tomorrow: " + p.tomorrow.day + ", " + p.tomorrow.session + ".");
+  if (p.yesterday) {
+    const g = p.yesterday.logged || {}, bits = [];
+    if (g.exercisesLogged) bits.push((g.exercisesLogged === 1 ? "1 exercise" : g.exercisesLogged + " exercises") + " logged");
+    if (g.runKm) bits.push(g.runKm + " km run");
+    if (g.combatMinutes) bits.push(g.combatMinutes + " min combat");
+    L.push("Yesterday: " + p.yesterday.session + (bits.length ? " (" + bits.join(", ") + ")" : " (nothing logged)") + ".");
+  }
+  const sg = p.signals || {};
+  (sg.stalledLifts || []).forEach((x) => L.push("Stuck: " + x.exercise + " at " + x.weightKg + " kg for " + x.sessionsAtThisWeight + " sessions" + (x.swapOptions ? ". Swap options: " + x.swapOptions.join(", ") : "") + "."));
+  (sg.progressingLifts || []).slice(0, 3).forEach((x) => L.push("Progressing: " + x.exercise + " " + x.fromKg + " to " + x.toKg + " kg."));
+  const ps = p.plannedSetsPerWeekByBodyPart;
+  if (ps && Object.keys(ps).length) L.push("Planned sets per week: " + Object.keys(ps).map((k) => k + " " + ps[k]).join(", ") + ".");
+  if (typeof p.consecutiveCompletedWeeksWith2PlusTrainingDays === "number") L.push("Weeks in a row with 2 or more training days: " + p.consecutiveCompletedWeeksWith2PlusTrainingDays + ".");
+  return L.concat(runCoachBasis(p));
+}
+
 function insightPayload() {
   syncGoal();
   const prog = PROGRAMS[state.program];
@@ -2042,13 +2163,15 @@ function insightPayload() {
     return {
       exercise: i.n,
       plan: i.s,
+      bodyPart: partOf(i.n),
       doneOnThisDay: !!state.done[doneKey(sid, i)],
       recentWeightsKg: h ? h.e.slice(-12).map(aiEntry) : []
     };
   });
   const runs = state.runs.slice(-12).map((r) => ({
     date: r.d, km: r.km, minutes: Math.round((r.sec / 60) * 10) / 10,
-    paceSecPerKm: Math.round(r.sec / r.km),
+    time: fmtDur(r.sec),
+    pace: fmtDur(r.sec / r.km) + " per km",
     avgHr: r.hr || undefined, avgCadence: r.cad || undefined, strideM: r.stride || undefined,
     type: r.type ? RUN_TYPES[r.type] : undefined,
     avgHrPercentOfMax: r.hr && effMaxHr() ? Math.round((r.hr / effMaxHr().bpm) * 100) : undefined
@@ -2115,7 +2238,7 @@ async function getInsight() {
     const s = await sb.auth.getSession();
     const token = s.data && s.data.session ? s.data.session.access_token : "";
     const providers = ["openai"];
-    const payload = insightPayload();
+    const payload = coachPayload();
     const results = await Promise.all(providers.map((p) => askOne(token, p, payload)));
     const good = results.filter((r) => r.text);
     const errs = results.filter((r) => r.error).map((r) => r.error);
@@ -2124,7 +2247,7 @@ async function getInsight() {
       if (btn) btn.disabled = false;
       return;
     }
-    state.lastInsight = { at: ymd(new Date()), session: SESSIONS[getSid(selected)].title, items: good };
+    state.lastInsight = { at: ymd(new Date()), session: SESSIONS[getSid(selected)].title, items: good, basis: coachBasis(payload) };
     save();
     render();
     if (errs.length) { const o2 = document.getElementById("insightOut"); if (o2) o2.textContent = errs.join(" "); }
@@ -2165,7 +2288,7 @@ function runContextFacts() {
     runDaysPerWeekInProgram: DAY_KEYS.filter(runLike).length || undefined,
     upcomingProgramRunDays: upcoming
   };
-  if (last4.length) out.recentAveragePaceSecPerKm = Math.round(last4.reduce((t, r) => t + r.sec / r.km, 0) / last4.length);
+  if (last4.length) out.recentAveragePace = fmtDur(last4.reduce((t, r) => t + r.sec / r.km, 0) / last4.length) + " per km";
   return out;
 }
 function runCoachPayload() {
@@ -2186,59 +2309,40 @@ function runCoachPayload() {
     totalRunsLogged: rr.length,
     monthlyKm: Object.keys(monthly).sort().slice(-6).map((k) => ({ month: k, km: Math.round(monthly[k] * 10) / 10 })),
     longestRun: longest ? { km: longest.km, date: longest.d } : undefined,
-    fastestPaceOn3kmPlus: fastest ? { secPerKm: Math.round(fastest.p), km: fastest.r.km, date: fastest.r.d } : undefined,
+    fastestPaceOn3kmPlus: fastest ? { pace: fmtDur(fastest.p) + " per km", km: fastest.r.km, date: fastest.r.d } : undefined,
     runsPerWeekLast4Weeks: Math.round((recent / 4) * 10) / 10
   };
   p.runContext = runContextFacts();
   return p;
 }
-async function getRunCoach() {
-  const out = document.getElementById("runCoachMsg");
-  const btn = document.querySelector("[data-runcoach]");
-  if (!sb || !user) { out.textContent = "Sign in to use the run coach."; return; }
-  out.textContent = "Thinking...";
-  if (btn) btn.disabled = true;
-  try {
-    const s = await sb.auth.getSession();
-    const token = s.data && s.data.session ? s.data.session.access_token : "";
-    const res = await fetch("/api/insight", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-      body: JSON.stringify(runCoachPayload())
-    });
-    let data = null;
-    try { data = await res.json(); } catch (e) {}
-    if (!res.ok || !data || !data.insight) {
-      out.textContent = (data && data.error) || "The run coach works on your live site.";
-      if (btn) btn.disabled = false;
-      return;
-    }
-    state.lastRunCoach = { at: ymd(new Date()), text: data.insight };
-    save();
-    render();
-  } catch (e) {
-    out.textContent = "Could not reach the server. Try again.";
-    if (btn) btn.disabled = false;
-  }
+function runCoachBasis(p) {
+  const L = [];
+  (p.runs || []).slice(-3).reverse().forEach((r) => {
+    L.push(fmtDate(r.date) + ": " + r.km + " km in " + r.time + ", " + r.pace +
+      (r.avgHr ? ", average heart rate " + r.avgHr + " bpm" + (r.avgHrPercentOfMax ? " (" + r.avgHrPercentOfMax + "% of max)" : "") : ", no heart rate logged") +
+      (r.type ? ", tagged " + String(r.type).toLowerCase() : ""));
+  });
+  const c = p.runContext || {}, pr = p.profile || {};
+  if (c.weeklyGoalKm) L.push("This week: " + c.weekSoFarKm + " of " + c.weeklyGoalKm + " km. Last week: " + c.lastWeekKm + " km.");
+  if (c.longestRunKm) L.push("Longest run logged: " + c.longestRunKm + " km.");
+  if (pr.maxHeartRateBpm) L.push("Max heart rate used: " + pr.maxHeartRateBpm + " bpm (" + pr.maxHeartRateSource + ").");
+  if (pr.usualWeeklyRunKm) L.push("You usually run " + pr.usualWeeklyRunKm + " km a week.");
+  if (pr.usualEasyRunKm) L.push("A normal easy run for you: " + pr.usualEasyRunKm + " km.");
+  if (pr.longRunStartsAtKm) L.push("A long run for you starts at: " + pr.longRunStartsAtKm + " km.");
+  if (c.upcomingProgramRunDays && c.upcomingProgramRunDays.length) L.push("Next run days in your program: " + c.upcomingProgramRunDays.map((d) => d.day).join(", ") + ".");
+  return L;
 }
-function runCoachCard() {
-  const rc = state.lastRunCoach;
-  return `<section class="hcard"><div class="hrow"><h3 class="hn">Run coach</h3></div>` +
-    `<p class="hd">Looks at your recent runs and plans your next three. It works with whatever you have logged.</p>` +
-    `<button type="button" class="btn gbtn" data-runcoach="1">Get run coach</button><p class="iout" id="runCoachMsg"></p>` +
-    (rc ? `<p class="iout">${esc(rc.text)}</p><p class="hd">${fmtDate(rc.at)}</p>` : "") + `</section>`;
-}
-
 function insightCard() {
   const li = state.lastInsight;
-  return `<section class="hcard"><div class="hrow"><h3 class="hn">Coach insight</h3></div>` +
-    `<p class="hd">Short feedback based on what you have logged. It gets better after a few sessions.</p>` +
+  return `<section class="hcard"><div class="hrow"><h3 class="hn">Coach</h3></div>` +
+    `<p class="hd">Reads your whole week: lifts, runs and kickboxing. Tells you what to improve and how, and what to watch out for tomorrow. It gets better after a few sessions.</p>` +
     `<div class="ctl2"><label for="goalsIn">Anything else the coach should know? (optional)</label>` +
-    `<input id="goalsIn" type="text" maxlength="200" value="${esc(state.goals || "")}" placeholder="For example: focus on upper chest, sore left knee" autocomplete="off"></div>` +
-    `<button type="button" class="btn gbtn" data-insight="1">Get insight</button>` +
+    `<input id="goalsIn" type="text" maxlength="200" value="${esc(state.goals || "")}" placeholder="For example: focus on upper chest, no direct arm work, sore left knee" autocomplete="off"></div>` +
+    `<button type="button" class="btn gbtn" data-insight="1">Get coach advice</button>` +
     `<p class="iout" id="insightOut"></p>` +
     insightItems(li).map((it) => `<p class="iout">${esc(it.text)}</p>`).join("") +
     (li ? `<p class="hd">${esc(li.session)}, ${fmtDate(li.at)}</p>` : "") +
+    (li && li.basis && li.basis.length ? `<details class="mt8"><summary>What the coach used</summary>${li.basis.map((l) => `<p class="hd">${esc(l)}</p>`).join("")}</details>` : "") +
     `</section>`;
 }
 
@@ -2346,7 +2450,8 @@ function programActions() {
       ? `<div class="mt12"><p class="warn">Delete "${esc(PROGRAMS[state.program].name)}"? Your workout history is kept.</p><div class="inl2"><button type="button" class="btn danger" data-delprog="go">Delete program</button><button type="button" class="btn2" data-delprog="cancel">Cancel</button></div></div>`
       : `<button type="button" class="reset mt8" data-delprog="ask">Delete this program</button>`;
   }
-  return `<div class="inl2 mt8"><button type="button" class="btn2" data-newprog="1">Create program</button><button type="button" class="btn2" data-shareprog="1">Share</button></div>` + del;
+  return `<div class="inl2 mt8"><button type="button" class="btn2" data-newprog="1">Create program</button><button type="button" class="btn2" data-shareprog="1">Share</button></div>` +
+    `<button type="button" class="btn2 gbtn" data-aiedit="1">Ask AI to edit my program</button>` + del;
 }
 function createView() {
   const fam = FAMILIES.map((f) => {
@@ -2440,6 +2545,210 @@ function deleteProgram(pid) {
   selected = startDay(state.program);
   save(); render();
 }
+/* ---------- AI program editor ---------- */
+let aiEdit = null;
+const AI_EDIT_CHIPS = ["Fix a stuck lift", "More upper chest", "Lighter legs before long runs", "Swap an exercise I dislike"];
+
+function aiNormPlan(p) {
+  let t = String(p == null ? "" : p).replace(/\s+/g, " ").trim().slice(0, 30);
+  t = t.replace(/\s*[x\u00d7]\s*/i, " x ");
+  const m = /^(\d{1,2})(?:-(\d{1,2}))? x (\d{1,3})(?:-(\d{1,3}))?(?: ?(?:\([a-z ]{1,20}\)|sec|seconds|min))?$/i.exec(t);
+  if (!m) return null;
+  const s1 = Number(m[1]), s2 = m[2] ? Number(m[2]) : s1, r1 = Number(m[3]), r2 = m[4] ? Number(m[4]) : r1;
+  if (s1 < 1 || s2 > 8 || s2 < s1 || r1 < 1 || r2 > 60 || r2 < r1) return null;
+  return t;
+}
+// Only changes that are safe to apply get through: gym days, real exercises, sane plans, capped size.
+function cleanAiChanges(raw) {
+  const list = raw && Array.isArray(raw.changes) ? raw.changes.slice(0, 6) : [];
+  const ew = effectiveWeek(state.program);
+  const lib = {}, known = {};
+  LIBRARY.forEach((n) => { lib[n.toLowerCase()] = n; });
+  DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => { known[i.n.toLowerCase()] = i.n; }));
+  const canon = (n) => { const k = String(n || "").trim().toLowerCase(); return lib[k] || known[k] || null; };
+  const dayOf = (v) => { const t = String(v || "").trim().toLowerCase(); return DAY_KEYS.find((k) => FULL[k].toLowerCase() === t || SHORT[k].toLowerCase() === t); };
+  const sim = {};
+  DAY_KEYS.forEach((k) => { const ss = SESSIONS[ew[k]]; sim[k] = ss && ss.kind === "gym" ? getItems(ew[k]).map((i) => i.n) : null; });
+  const out = [];
+  list.forEach((c) => {
+    if (!c || typeof c !== "object") return;
+    const day = dayOf(c.day);
+    if (!day || !sim[day]) return;
+    const op = String(c.op || "").toLowerCase();
+    const reason = cleanStr(c.reason, 120);
+    const has = (name) => sim[day].find((n) => n.toLowerCase() === String(name || "").trim().toLowerCase());
+    if (op === "add") {
+      const name = canon(c.exercise), plan = aiNormPlan(c.plan);
+      if (!name || !plan || has(name) || sim[day].length >= 12) return;
+      sim[day].push(name);
+      out.push({ op, day, exercise: name, plan, reason });
+    } else if (op === "remove") {
+      const name = has(c.exercise);
+      if (!name || sim[day].length <= 2) return;
+      sim[day].splice(sim[day].indexOf(name), 1);
+      out.push({ op, day, exercise: name, reason });
+    } else if (op === "replace") {
+      const rem = has(c.remove), add = canon(c.add), plan = aiNormPlan(c.plan);
+      if (!rem || !add || !plan || (has(add) && add !== rem)) return;
+      sim[day][sim[day].indexOf(rem)] = add;
+      out.push({ op, day, remove: rem, add, plan, reason });
+    } else if (op === "plan") {
+      const name = has(c.exercise), plan = aiNormPlan(c.plan);
+      if (!name || !plan) return;
+      out.push({ op, day, exercise: name, plan, reason });
+    }
+  });
+  return out;
+}
+function parseAiEdit(text) {
+  const t = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a < 0 || b <= a) return null;
+  let o;
+  try { o = JSON.parse(t.slice(a, b + 1)); } catch (e) { return null; }
+  if (!o || typeof o !== "object") return null;
+  return { summary: cleanStr(o.summary, 200), changes: cleanAiChanges(o) };
+}
+function aiEditPayload(req) {
+  const c = coachPayload();
+  const byPart = {};
+  LIBRARY.forEach((n) => { const k = partOf(n); (byPart[k] = byPart[k] || []).push(n); });
+  const sg = c.signals || {};
+  return {
+    mode: "edit",
+    request: req || "Improve my program based on my data.",
+    goals: c.goals, profile: c.profile, program: c.program, units: c.units,
+    week: c.week.map((d) => ({ day: d.day, session: d.session, type: d.type, isToday: d.isToday, isTomorrow: d.isTomorrow, exercises: d.exercises })),
+    plannedSetsPerWeekByBodyPart: c.plannedSetsPerWeekByBodyPart,
+    signals: { stalledLifts: sg.stalledLifts, progressingLifts: sg.progressingLifts, readyToAddWeight: sg.readyToAddWeight, notTrainedRecently: sg.notTrainedRecently },
+    trainingDaysPerWeekLast6: c.trainingDaysPerWeekLast6,
+    consecutiveCompletedWeeksWith2PlusTrainingDays: c.consecutiveCompletedWeeksWith2PlusTrainingDays,
+    runContext: c.runContext ? { weeklyGoalKm: c.runContext.weeklyGoalKm, upcomingProgramRunDays: c.runContext.upcomingProgramRunDays } : undefined,
+    library: byPart
+  };
+}
+async function aiSuggest() {
+  const a = aiEdit;
+  if (!a || a.status === "loading") return;
+  const inp = document.getElementById("aiReq");
+  a.request = cleanStr(inp ? inp.value : "", 200);
+  const msg = document.getElementById("aiMsg");
+  if (!sb || !user) { msg.textContent = "Sign in to use this. It uses your account to keep usage fair."; return; }
+  a.status = "loading"; a.changes = []; a.summary = ""; a.undo = null;
+  msg.textContent = "Thinking...";
+  const btn = document.querySelector("[data-aisuggest]");
+  if (btn) btn.disabled = true;
+  const fail = (t) => { a.status = "idle"; a.msg = t; render(); };
+  try {
+    const s = await sb.auth.getSession();
+    const token = s.data && s.data.session ? s.data.session.access_token : "";
+    const res = await fetch("/api/insight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(aiEditPayload(a.request))
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || !data || !data.insight) { fail((data && data.error) || "This works on your live site."); return; }
+    const parsed = parseAiEdit(data.insight);
+    if (!parsed) { fail("The AI reply could not be read. Try again."); return; }
+    a.summary = parsed.summary;
+    a.changes = parsed.changes;
+    a.status = "preview";
+    a.msg = parsed.changes.length ? "" : (parsed.summary || "The AI did not suggest any changes.");
+    render();
+  } catch (e) {
+    fail("Could not reach the server. Try again.");
+  }
+}
+function aiChangeText(c) {
+  const d = FULL[c.day];
+  if (c.op === "add") return d + ": add " + c.exercise + ", " + c.plan;
+  if (c.op === "remove") return d + ": remove " + c.exercise;
+  if (c.op === "replace") return d + ": replace " + c.remove + " with " + c.add + ", " + c.plan;
+  return d + ": change " + c.exercise + " to " + c.plan;
+}
+function aiEditView() {
+  const a = aiEdit || { status: "idle", changes: [], request: "", msg: "", summary: "", undo: null };
+  const prog = PROGRAMS[state.program];
+  const note = isCustom(state.program)
+    ? "Changes go into this program, and you can undo them."
+    : "This is a built-in program, so your changes are saved as a new copy. The original stays as it is.";
+  let h = `<section class="hcard"><h3 class="hn">Ask AI to edit your program</h3>` +
+    `<p class="hd">${esc(prog.name)}. Tell the AI what you want changed. It suggests, you choose, and nothing changes until you tap Apply. ${note} Each suggestion uses one of your daily credits.</p>` +
+    `<div class="chips">${AI_EDIT_CHIPS.map((t) => `<button type="button" class="chip" data-aichip="${esc(t)}">${esc(t)}</button>`).join("")}</div>` +
+    `<div class="ctl2 mt12"><label for="aiReq">What do you want changed?</label>` +
+    `<input id="aiReq" type="text" maxlength="200" value="${esc(a.request || "")}" placeholder="For example: swap incline press, add more upper chest" autocomplete="off"></div>` +
+    `<button type="button" class="btn gbtn" data-aisuggest="1"${a.status === "loading" ? " disabled" : ""}>Suggest changes</button>` +
+    `<p class="iout" id="aiMsg">${esc(a.msg || "")}</p>`;
+  if (a.status === "preview" && a.changes.length) {
+    h += `<p class="hd">${esc(a.summary || "")}</p><div class="chips">` +
+      a.changes.map((c, i) => `<label class="chip multi"><input type="checkbox" data-aichg="${i}" checked><span>${esc(aiChangeText(c))}${c.reason ? `<small class="alt">${esc(c.reason)}</small>` : ""}</span></label>`).join("") +
+      `</div><button type="button" class="btn gbtn mt8" data-aiapply="1">Apply selected</button>`;
+  }
+  if (a.status === "done" && a.undo) h += `<button type="button" class="btn2 gbtn" data-aiundo="1">Undo these changes</button>`;
+  return h + `<button type="button" class="btn2 gbtn" data-pback="1">Back to program</button></section>`;
+}
+function aiApply() {
+  const a = aiEdit;
+  if (!a || a.status !== "preview") return;
+  const picks = Array.prototype.map.call(document.querySelectorAll("[data-aichg]:checked"), (e) => a.changes[Number(e.dataset.aichg)]).filter(Boolean);
+  const msg = document.getElementById("aiMsg");
+  if (!picks.length) { msg.textContent = "Tick at least one change."; return; }
+  let undo;
+  if (isCustom(state.program)) {
+    const snap = {};
+    const ew0 = effectiveWeek(state.program);
+    picks.forEach((c) => {
+      const sid = ew0[c.day];
+      if (!(sid in snap)) snap[sid] = state.custom.sessions[sid] ? state.custom.sessions[sid].map((it) => Object.assign({}, it)) : null;
+    });
+    undo = { kind: "edit", pid: state.program, snap };
+  } else {
+    if (state.customPrograms.length >= MAX_CUSTOM) { msg.textContent = "You can keep up to " + MAX_CUSTOM + " custom and shared programs. Delete one first."; return; }
+    const prev = state.program;
+    const c0 = copyProgram(prev);
+    const id = newId();
+    state.customPrograms.push({ id, name: (PROGRAMS[prev].name + " (AI)").slice(0, 40), blurb: "Edited with AI.", week: c0.week, sessions: c0.sessions, runWith: c0.runWith });
+    registerCustom(state.customPrograms);
+    state.program = "c:" + id;
+    undo = { kind: "copy", pid: "c:" + id, prev };
+  }
+  const ew = effectiveWeek(state.program);
+  picks.forEach((c) => {
+    const sid = ew[c.day];
+    const arr = getItems(sid).slice();
+    const find = (n) => arr.findIndex((it) => it.n === n);
+    if (c.op === "add") arr.push({ n: c.exercise, s: c.plan, chest: CHEST.has(c.exercise) });
+    else if (c.op === "remove") { const i = find(c.exercise); if (i >= 0) arr.splice(i, 1); }
+    else if (c.op === "replace") { const i = find(c.remove); if (i >= 0) arr[i] = { n: c.add, s: c.plan, chest: CHEST.has(c.add) }; }
+    else if (c.op === "plan") { const i = find(c.exercise); if (i >= 0) arr[i] = Object.assign({}, arr[i], { s: c.plan }); }
+    state.custom.sessions[sid] = arr;
+  });
+  a.status = "done"; a.undo = undo; a.changes = [];
+  a.msg = undo.kind === "copy"
+    ? "Done. Saved as a new program: " + PROGRAMS[state.program].name + ". The original is unchanged."
+    : "Done. " + picks.length + " change" + (picks.length === 1 ? "" : "s") + " applied.";
+  save(); render(); window.scrollTo(0, 0);
+}
+function aiUndo() {
+  const a = aiEdit;
+  if (!a || !a.undo) return;
+  const u = a.undo;
+  if (u.kind === "edit") {
+    if (!PROGRAMS[u.pid]) { a.msg = "Could not undo."; render(); return; }
+    Object.keys(u.snap).forEach((sid) => { if (u.snap[sid]) state.custom.sessions[sid] = u.snap[sid]; else delete state.custom.sessions[sid]; });
+  } else {
+    state.customPrograms = state.customPrograms.filter((x) => "c:" + x.id !== u.pid);
+    Object.keys(state.custom.sessions).forEach((k) => { if (k.indexOf(u.pid + ":") === 0) delete state.custom.sessions[k]; });
+    delete state.custom.week[u.pid];
+    registerCustom(state.customPrograms);
+    state.program = PROGRAMS[u.prev] ? u.prev : "fb3";
+  }
+  a.status = "idle"; a.undo = null; a.changes = []; a.msg = "Undone.";
+  save(); render();
+}
+
 function customControls() {
   const cp = state.customPrograms.find((x) => "c:" + x.id === state.program);
   if (!cp) return "";
@@ -2877,6 +3186,7 @@ function render() {
   if (!pview && incomingData) pview = "import";
   if (pview === "create") { $app.innerHTML = topbar() + createView(); return; }
   if (pview === "share") { $app.innerHTML = topbar() + shareView(); return; }
+  if (pview === "aiedit") { $app.innerHTML = topbar() + aiEditView(); return; }
   if (pview === "import") { $app.innerHTML = topbar() + importView(); return; }
   if (pview === "profile") { $app.innerHTML = topbar() + profileView(); return; }
   if (pview === "recs") { $app.innerHTML = topbar() + recsView(); return; }
@@ -2939,7 +3249,6 @@ function render() {
       ((n) => (n && !editing ? `<div class="complete">${CHECK_ICON}<span>${n} ${s.kind === "run" ? (n === 1 ? "run" : "runs") : (n === 1 ? "session" : "sessions")} logged for ${FULL[selected]}. Nice work.</span></div>` : ""))(s.kind === "combat" ? combatOn(wd[selected].ds).length : (s.kind === "run" ? state.runs.filter((r) => r.d === wd[selected].ds).length : 0)) +
       body +
     `</section>` +
-    ((s.kind === "run" || (prog.runWith && prog.runWith[selected])) && !editing ? runCoachCard() : "") +
     insightCard() +
     `<section class="hcard"><h3 class="hn">Program</h3><p class="hd">${esc(prog.blurb)}</p><div class="pmenu">${seg}</div>${programActions()}</section>` +
     `<p class="foot">Checkmarks reset each Monday. Weights and edits are saved to your account when you are signed in, or on this device if not.</p>`;
@@ -2962,6 +3271,12 @@ $app.addEventListener("click", (e) => {
   const rp = e.target.closest("[data-resetprog]");
   if (rp) { resetProgramStep(rp.dataset.resetprog); return; }
   const pf = e.target.closest("[data-profile]");
+  if (e.target.closest("[data-aiedit]")) { aiEdit = { status: "idle", request: "", changes: [], msg: "", summary: "", undo: null }; pview = "aiedit"; render(); window.scrollTo(0, 0); return; }
+  const aic = e.target.closest("[data-aichip]");
+  if (aic) { const ai = document.getElementById("aiReq"); if (ai) { ai.value = aic.dataset.aichip; ai.focus(); } return; }
+  if (e.target.closest("[data-aisuggest]")) { aiSuggest(); return; }
+  if (e.target.closest("[data-aiapply]")) { aiApply(); return; }
+  if (e.target.closest("[data-aiundo]")) { aiUndo(); return; }
   if (e.target.closest("[data-newprog]")) { pview = "create"; render(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-shareprog]")) { startShare(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-sendshare]")) { sendShare(); return; }
@@ -2987,7 +3302,6 @@ $app.addEventListener("click", (e) => {
     state.program = up.dataset.usep; customIdx = -1; editing = false; pview = "";
     save(); render(); window.scrollTo(0, 0); return;
   }
-  if (e.target.closest("[data-runcoach]")) { getRunCoach(); return; }
   if (e.target.closest("[data-hrest]")) {
     const age = ageOf(document.getElementById("pDob").value);
     const msg = document.getElementById("pMsg");
