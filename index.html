@@ -348,7 +348,7 @@ details[open]>summary::after{content:"\2212"}
 
 const SESSIONS = {
   combat: {
-    title: "Kickboxing / MMA", kind: "combat",
+    title: "Combat", kind: "combat",
     note: "Hard session. Keep the next day light on the legs.",
     items: []
   },
@@ -2321,7 +2321,7 @@ const COMBAT_INFO = {
   mma: { title: "MMA", note: "Striking and grappling together. Go easy on heavy pulling and hinging the next day." },
   bjj: { title: "BJJ", note: "Grips, neck and hips get worked. Go easy on heavy pulling and hinging the next day." },
   othercombat: { title: "Combat training", note: "Hard session. Keep the next day's training lighter." },
-  combat: { title: "Kickboxing / MMA", note: "Hard session. Keep the next day light on the legs." }
+  combat: { title: "Combat", note: "Hard session. Keep the next day light on the legs." }
 };
 function hasCombat(acts) { return (acts || []).some((a) => !!COMBAT_INFO[a]); }
 function syncCombat() {
@@ -2359,7 +2359,7 @@ function profileForAI() {
     experience: lab(LEVELS, p.level),
     daysPerWeek: p.days ? Number(p.days) : undefined,
     equipment: lab(EQUIP, p.equip),
-    otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Kickboxing / MMA" : a))
+    otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Combat sports" : a))
   };
 }
 
