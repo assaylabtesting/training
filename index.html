@@ -313,6 +313,15 @@ details[open]>summary::after{content:"\2212"}
 .plist li b{font-weight:500;text-align:right}
 .btn.danger{background:#B3261E;border-color:#B3261E;color:#fff}
 .rf select{width:100%;min-height:44px;padding:0 10px;font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.donecard{border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;background:var(--bg)}
+.dstats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 8px}
+.dstats.two{grid-template-columns:repeat(2,1fr)}
+.dstats div{text-align:center}
+.dstats b{display:block;font-family:var(--display);font-size:28px;font-weight:600;line-height:1.1}
+.dstats span{font-size:12px;color:var(--muted)}
+.dmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}
+.dmeta button{background:none;border:0;color:var(--muted);text-decoration:underline;min-height:36px;font-size:12px;padding:0}
+.runlog + .list{border-top:1px solid var(--line)}
 .howbtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12px;font-weight:500;color:var(--ink)}
 #sheet:empty{display:none}
 .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
@@ -1084,15 +1093,42 @@ function runItem(r) {
     `<button type="button" aria-label="Delete run from ${fmtDate(r.d)}" data-delrun="${r.id}">×</button></div>`;
 }
 
+function runDoneCard(r) {
+  if (pendingDel === "r|" + r.id) {
+    return `<div class="donecard"><p class="warn">Delete this run? It is removed from this week's total and your history. This can't be undone.</p>` +
+      `<div class="inl2"><button type="button" class="btn danger" data-delok="r|${r.id}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></div>`;
+  }
+  const st = [[fmtKm(r.km), "km"], [fmtDur(r.sec), "time"], [fmtDur(r.sec / r.km), "pace per km"]];
+  if (r.hr) st.push([String(Math.round(r.hr)), "avg bpm"]);
+  if (r.cad) st.push([String(Math.round(r.cad)), "cadence"]);
+  if (r.stride) st.push([fmtKm(r.stride), "stride in m"]);
+  return `<div class="donecard"><div class="dstats">${st.map((x) => `<div><b>${esc(x[0])}</b><span>${x[1]}</span></div>`).join("")}</div>` +
+    `<div class="dmeta"><span>Logged ${fmtDate(r.d)}</span><button type="button" data-delrun="${r.id}">Delete</button></div></div>`;
+}
+function combatDoneCard(x) {
+  if (pendingDel === "k|" + x.id) {
+    return `<div class="donecard"><p class="warn">Delete this session? It is removed from your weekly time and history. This can't be undone.</p>` +
+      `<div class="inl2"><button type="button" class="btn danger" data-delok="k|${x.id}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></div>`;
+  }
+  const st = [[fmtMin(x.min), "duration"]];
+  if (x.hr) st.push([String(x.hr), "avg bpm"]);
+  return `<div class="donecard"><div class="dstats two">${st.map((s) => `<div><b>${esc(s[0])}</b><span>${s[1]}</span></div>`).join("")}</div>` +
+    `<div class="dmeta"><span>${esc(sportName(x.sport))}, logged ${fmtDate(x.d)}</span><button type="button" data-delcombat="${x.id}">Delete</button></div></div>`;
+}
+
 function runLog(label) {
   runAuto.km = runAuto.time = runAuto.pace = runAuto.stride = false;
   const wk = weekKey();
   const mine = state.runs.filter((r) => r.w === wk).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : b.id - a.id));
   const total = mine.reduce((s, r) => s + r.km, 0);
   const pct = Math.min(100, (total / GOAL_KM) * 100);
+  const dsel = weekDays()[selected] ? weekDays()[selected].ds : entryDate();
+  const todayRuns = mine.filter((r) => r.d === dsel);
+  const otherRuns = mine.filter((r) => r.d !== dsel);
   return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${fmtKm(total)} of ${GOAL_KM} km</span></div>` +
     `<div class="meter"><i style="width:${pct.toFixed(0)}%"></i></div>` +
-    `<h4>Log a run${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
+    (todayRuns.length ? `<div class="wkrow mt12"><b>Logged for ${FULL[selected]}</b></div>${todayRuns.map(runDoneCard).join("")}` : "") +
+    `<h4>${todayRuns.length ? "Log another run" : "Log a run"}${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
     `<label>Date<input id="rDate" type="date" value="${entryDate()}"></label>` +
     `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
     `<div class="fg"><span>Total time</span><div class="r2">` +
@@ -1108,7 +1144,7 @@ function runLog(label) {
     `<label>Avg stride<input id="rStr" data-rf="stride" type="text" inputmode="decimal" placeholder="m" autocomplete="off"></label></div>` +
     `<p class="hint" id="runHint">Enter any two of distance, time and pace and the third fills in. Stride fills in from pace and cadence.</p>` +
     `<button type="button" class="btn" data-runsave="1">Save run</button></div>` +
-    (mine.length ? `<div class="runlist"><div class="wkrow"><b>Runs this week</b></div>${mine.map(runItem).join("")}</div>` : "") +
+    (otherRuns.length ? `<div class="runlist"><div class="wkrow"><b>Earlier this week</b></div>${otherRuns.map(runItem).join("")}</div>` : "") +
     `</div>`;
 }
 
@@ -1367,17 +1403,21 @@ function combatLog() {
   const mine = state.combat.filter((x) => x.w === wk).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : b.id - a.id));
   const total = mine.reduce((t, x) => t + x.min, 0);
   const def = combatSportDefault();
+  const dsel = weekDays()[selected] ? weekDays()[selected].ds : entryDate();
+  const todayC = mine.filter((x) => x.d === dsel);
+  const otherC = mine.filter((x) => x.d !== dsel);
   const opts = [["", "Choose sport"], ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["mma", "MMA"], ["bjj", "BJJ"], ["othercombat", "Other"]]
     .map((o) => `<option value="${o[0]}"${o[0] === def ? " selected" : ""}>${o[1]}</option>`).join("");
   return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${mine.length} ${mine.length === 1 ? "session" : "sessions"}, ${fmtMin(total)}</span></div>` +
-    `<h4>Log this session</h4><div class="rf">` +
+    (todayC.length ? `<div class="wkrow mt12"><b>Logged for ${FULL[selected]}</b></div>${todayC.map(combatDoneCard).join("")}` : "") +
+    `<h4>${todayC.length ? "Log another session" : "Log this session"}</h4><div class="rf">` +
     `<label>Date<input id="kDate" type="date" value="${entryDate()}" max="${ymd(new Date())}"></label>` +
     `<label>Sport<select id="kSport">${opts}</select></label>` +
     `<div class="r3"><label>Duration (min)<input id="kMin" type="text" inputmode="numeric" placeholder="60" autocomplete="off"></label>` +
     `<label>Avg heart rate<input id="kHr" type="text" inputmode="numeric" placeholder="bpm, optional" autocomplete="off"></label></div>` +
     `<p class="hint" id="kHint">Saving the duration marks the day as done. Add heart rate if your watch has it.</p>` +
     `<button type="button" class="btn" data-combatsave="1">Save session</button></div>` +
-    (mine.length ? `<div class="runlist"><div class="wkrow"><b>Sessions this week</b></div>${mine.map(combatItem).join("")}</div>` : "") + `</div>`;
+    (otherC.length ? `<div class="runlist"><div class="wkrow"><b>Earlier this week</b></div>${otherC.map(combatItem).join("")}</div>` : "") + `</div>`;
 }
 function saveCombat() {
   const el = (id) => document.getElementById(id);
@@ -2585,7 +2625,9 @@ function render() {
       `</li>`;
   }).join("");
 
-  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "combat" ? combatLog() : (s.kind === "run" ? runLog("") : (prog.runWith && prog.runWith[selected] ? runLog(prog.runWith[selected]) : "")));
+  const logPart = editing ? "" : (s.kind === "combat" ? combatLog() : (s.kind === "run" ? runLog("") : (prog.runWith && prog.runWith[selected] ? runLog(prog.runWith[selected]) : "")));
+  const listPart = (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "");
+  const body = editing ? editBody(sid, items) : (s.kind === "run" ? logPart + listPart : listPart + logPart);
 
   const tabs = tabBar();
   if (tab === "history") { $app.innerHTML = topbar() + tabs + historyView(); return; }
@@ -2602,7 +2644,7 @@ function render() {
       (c.total && !editing ? `<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${c.total}" aria-valuenow="${c.done}"><i style="width:${Math.round((c.done / c.total) * 100)}%"></i></div>` : "") +
       `</div>` +
       (c.total && !editing && c.done === c.total ? `<div class="complete">${CHECK_ICON}<span>Session complete. Nice work.</span></div>` : "") +
-      (!editing && s.kind === "combat" && combatOn(wd[selected].ds).length ? `<div class="complete">${CHECK_ICON}<span>Session logged. ${esc(combatOn(wd[selected].ds).map((x) => fmtMin(x.min) + (x.hr ? ", avg " + x.hr + " bpm" : "")).join(" and "))}</span></div>` : "") +
+      ((n) => (n && !editing ? `<div class="complete">${CHECK_ICON}<span>${n} ${s.kind === "run" ? (n === 1 ? "run" : "runs") : (n === 1 ? "session" : "sessions")} logged for ${FULL[selected]}. Nice work.</span></div>` : ""))(s.kind === "combat" ? combatOn(wd[selected].ds).length : (s.kind === "run" ? state.runs.filter((r) => r.d === wd[selected].ds).length : 0)) +
       body +
     `</section>` +
     insightCard() +
