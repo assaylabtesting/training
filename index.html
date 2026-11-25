@@ -1122,7 +1122,7 @@ function saveRun() {
   if (!(r.km && r.time)) { if (hint) hint.textContent = "Enter at least two of distance, time and pace."; return; }
   if (r.km > 300 || r.time > 86400) { if (hint) hint.textContent = "Those numbers look too large. Check the distance and time."; return; }
   const ds = document.getElementById("rDate").value || ymd(new Date());
-  state.runs.push({ id: Date.now(), w: wkOf(ds), d: ds, km: r.km, sec: Math.round(r.time), hr: r.hr || 0, cad: r.cad || 0, stride: r.stride || 0 });
+  state.runs.push({ id: Date.now(), w: wkOf(ds), d: ds, km: r.km, sec: Math.round(r.time), hr: r.hr || 0, cad: r.cad || 0, stride: r.stride || 0, type: (document.getElementById("rType") || {}).value || "" });
   state.runs.sort((a, b) => a.id - b.id);
   save(); render();
 }
@@ -1132,6 +1132,7 @@ function runItem(r) {
   if (r.hr) bits.push(Math.round(r.hr) + " bpm");
   if (r.cad) bits.push(Math.round(r.cad) + " spm");
   if (r.stride) bits.push(fmtKm(r.stride) + " m stride");
+  if (r.type && RUN_TYPES[r.type]) bits.unshift(RUN_TYPES[r.type]);
   if (pendingDel === "r|" + r.id) {
     return `<div class="runitem confirm"><div><p class="warn">Delete this run? It is removed from this week's total and your history. This can't be undone.</p>` +
       `<div class="inl2"><button type="button" class="btn danger" data-delok="r|${r.id}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></div></div>`;
@@ -1150,7 +1151,7 @@ function runDoneCard(r) {
   if (r.cad) st.push([String(Math.round(r.cad)), "cadence"]);
   if (r.stride) st.push([fmtKm(r.stride), "stride in m"]);
   return `<div class="donecard"><div class="dstats">${st.map((x) => `<div><b>${esc(x[0])}</b><span>${x[1]}</span></div>`).join("")}</div>` +
-    `<div class="dmeta"><span>Logged ${fmtDate(r.d)}</span><button type="button" data-delrun="${r.id}">Delete</button></div></div>`;
+    `<div class="dmeta"><span>${r.type && RUN_TYPES[r.type] ? RUN_TYPES[r.type] + ", logged " : "Logged "}${fmtDate(r.d)}</span><button type="button" data-delrun="${r.id}">Delete</button></div></div>`;
 }
 function combatDoneCard(x) {
   if (pendingDel === "k|" + x.id) {
@@ -1177,6 +1178,7 @@ function runLog(label) {
     (todayRuns.length ? `<div class="wkrow mt12"><b>Logged for ${FULL[selected]}</b></div>${todayRuns.map(runDoneCard).join("")}` : "") +
     `<h4>${todayRuns.length ? "Log another run" : "Log a run"}${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
     `<label>Date<input id="rDate" type="date" value="${entryDate()}"></label>` +
+    `<label>Run type (optional)<select id="rType"><option value="">Not sure</option><option value="easy">Easy run</option><option value="long">Long run</option><option value="tempo">Tempo or hard</option><option value="race">Race</option></select></label>` +
     `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
     `<div class="fg"><span>Total time</span><div class="r2">` +
     `<input id="rH" data-rf="time" type="text" inputmode="numeric" placeholder="h" aria-label="Hours" autocomplete="off">` +
@@ -1925,6 +1927,17 @@ function counts(sid, ds) {
   return { done, total: items.length };
 }
 
+const RUN_TYPES = { easy: "Easy run", long: "Long run", tempo: "Tempo or hard", race: "Race" };
+// Max heart rate: what the user entered, otherwise an automatic estimate from age (clearly marked as an estimate).
+function effMaxHr() {
+  const p = state.profile;
+  if (!p) return null;
+  if (p.maxHr) return { bpm: p.maxHr, source: p.maxHrEst ? "estimate from age" : "entered by the user" };
+  const age = ageOf(p.dob);
+  if (age !== null && age >= 10 && age <= 100) return { bpm: Math.round(208 - 0.7 * age), source: "automatic estimate from age, can be off by about 10 beats" };
+  return null;
+}
+
 function hitTopTwice(it) {
   const pr = planRange(it.s);
   const h = state.history[slug(it.n)];
@@ -2018,6 +2031,7 @@ function insightSignals() {
 }
 
 function insightPayload() {
+  syncGoal();
   const prog = PROGRAMS[state.program];
   const sid = getSid(selected);
   const s = SESSIONS[sid];
@@ -2035,7 +2049,9 @@ function insightPayload() {
   const runs = state.runs.slice(-12).map((r) => ({
     date: r.d, km: r.km, minutes: Math.round((r.sec / 60) * 10) / 10,
     paceSecPerKm: Math.round(r.sec / r.km),
-    avgHr: r.hr || undefined, avgCadence: r.cad || undefined, strideM: r.stride || undefined
+    avgHr: r.hr || undefined, avgCadence: r.cad || undefined, strideM: r.stride || undefined,
+    type: r.type ? RUN_TYPES[r.type] : undefined,
+    avgHrPercentOfMax: r.hr && effMaxHr() ? Math.round((r.hr / effMaxHr().bpm) * 100) : undefined
   }));
   const body = state.body.slice(-12).map((x) => ({ date: x.d, kg: x.kg }));
   const inSession = new Set(getItems(sid).map((i) => slug(i.n)));
@@ -2118,6 +2134,40 @@ async function getInsight() {
   }
 }
 
+// Plain facts about the runner's week. No targets and no plan: the coach decides those from the data.
+function runContextFacts() {
+  const rr = state.runs.slice().sort((a, b) => a.id - b.id);
+  const usual = (state.profile && state.profile.usualKm) || 0;
+  if (!rr.length && !usual) return undefined;
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const cur = weekKey();
+  const m0 = new Date(cur + "T00:00:00");
+  const prevKey = ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() - 7));
+  const nextKey = ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() + 7));
+  const kmOf = (wk) => state.runs.filter((r) => r.w === wk).reduce((t, r) => t + r.km, 0);
+  const wkNow = kmOf(cur), wkPrev = kmOf(prevKey);
+  const longest = rr.reduce((m, r) => Math.max(m, r.km), 0);
+  const prog = PROGRAMS[state.program], ew = effectiveWeek(state.program);
+  const runLike = (key) => { const ss = SESSIONS[ew[key]]; return !!ss && (ss.kind === "run" || !!(prog.runWith && prog.runWith[key])); };
+  const upcoming = [];
+  for (let i = 1; i <= 14 && upcoming.length < 4; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const key = JS_DAYS[d.getDay()];
+    if (!runLike(key)) continue;
+    const ds = ymd(d), wk = wkOf(ds);
+    upcoming.push({ day: FULL[key], date: ds, weekFromNow: wk === cur ? 0 : (wk === nextKey ? 1 : 2), programSessionLabel: SESSIONS[ew[key]].title });
+  }
+  const last4 = rr.slice(-4);
+  const out = {
+    weeklyGoalKm: GOAL_KM, weekSoFarKm: r2(wkNow), lastWeekKm: r2(wkPrev), kmLeftToGoalThisWeek: Math.max(0, r2(GOAL_KM - wkNow)),
+    usualWeeklyKm: usual || undefined, longestRunKm: longest ? r2(longest) : undefined,
+    runsLogged: rr.length, weeksWithRunsLogged: new Set(rr.map((r) => r.w)).size,
+    runDaysPerWeekInProgram: DAY_KEYS.filter(runLike).length || undefined,
+    upcomingProgramRunDays: upcoming
+  };
+  if (last4.length) out.recentAveragePaceSecPerKm = Math.round(last4.reduce((t, r) => t + r.sec / r.km, 0) / last4.length);
+  return out;
+}
 function runCoachPayload() {
   const p = insightPayload();
   delete p.exercises; delete p.otherExercisesLogged; delete p.bodyWeights;
@@ -2139,6 +2189,7 @@ function runCoachPayload() {
     fastestPaceOn3kmPlus: fastest ? { secPerKm: Math.round(fastest.p), km: fastest.r.km, date: fastest.r.d } : undefined,
     runsPerWeekLast4Weeks: Math.round((recent / 4) * 10) / 10
   };
+  p.runContext = runContextFacts();
   return p;
 }
 async function getRunCoach() {
@@ -2611,14 +2662,17 @@ function profileForAI() {
     daysPerWeek: p.days ? Number(p.days) : undefined,
     equipment: lab(EQUIP, p.equip),
     otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Combat sports" : a)),
+    usualWeeklyRunKm: p.usualKm || undefined,
     runningGoal: p.raceType ? ({ "5k": "5k race", "10k": "10k race", half: "Half marathon", marathon: "Marathon" })[p.raceType] : undefined,
     weeksToRace: (() => {
       if (!p.raceType || !p.raceDate) return undefined;
       const days = Math.round((new Date(p.raceDate + "T00:00:00") - new Date(ymd(new Date()) + "T00:00:00")) / 86400000);
       return days >= 0 ? Math.round((days / 7) * 10) / 10 : undefined;
     })(),
-    maxHeartRateBpm: p.maxHr || undefined,
-    maxHeartRateSource: p.maxHr ? (p.maxHrEst ? "estimate from age" : "entered by the user") : undefined
+    maxHeartRateBpm: effMaxHr() ? effMaxHr().bpm : undefined,
+    maxHeartRateSource: effMaxHr() ? effMaxHr().source : undefined,
+    usualEasyRunKm: p.easyKm || undefined,
+    longRunStartsAtKm: p.longKm || undefined
   };
 }
 
@@ -2652,12 +2706,15 @@ function profileView() {
     `<div class="ctl2"><label for="pEquip">Where you train</label>${sel("pEquip", EQUIP, p.equip, "Choose")}</div>` +
     `<div class="fg2"><span class="fl2">Sports and activities (optional)</span><div class="chips">${chk("pact", ACTS, (p.acts || []).map((a) => (a === "combat" ? "kickboxing" : a)))}</div></div>` +
     `<div class="ctl2"><label for="pKmGoal">Weekly running or cardio distance goal in km (optional)</label><input id="pKmGoal" type="text" inputmode="decimal" placeholder="15" value="${p.kmGoal || ""}" autocomplete="off"></div>` +
+    `<div class="ctl2"><label for="pUsualKm">What you usually run in a week, in km (optional)</label><input id="pUsualKm" type="text" inputmode="decimal" placeholder="For example 10" value="${p.usualKm || ""}" autocomplete="off"></div>` +
+    `<div class="ctl2"><label for="pEasyKm">A normal easy run for you is about how many km? (optional)</label><input id="pEasyKm" type="text" inputmode="decimal" placeholder="For example 5" value="${p.easyKm || ""}" autocomplete="off"></div>` +
+    `<div class="ctl2"><label for="pLongKm">A long run for you starts at how many km? (optional)</label><input id="pLongKm" type="text" inputmode="decimal" placeholder="For example 6" value="${p.longKm || ""}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pRace">Running goal (optional)</label><select id="pRace">` +
     [["", "Just build weekly distance"], ["5k", "5k race"], ["10k", "10k race"], ["half", "Half marathon"], ["marathon", "Marathon"]].map((o) => `<option value="${o[0]}"${o[0] === (p.raceType || "") ? " selected" : ""}>${o[1]}</option>`).join("") + `</select></div>` +
     `<div class="ctl2" id="pRaceWrap"${p.raceType ? "" : " hidden"}><label for="pRaceDate">Race date</label><input id="pRaceDate" type="date" value="${esc(p.raceDate || "")}" min="${ymd(new Date())}"></div>` +
     `<div class="ctl2"><label for="pMaxHr">Max heart rate in bpm (optional)</label><input id="pMaxHr" type="text" inputmode="numeric" placeholder="Leave blank if unsure" value="${p.maxHr || ""}" data-est="${p.maxHrEst ? "1" : "0"}" autocomplete="off">` +
     `<button type="button" class="btn2" data-hrest="1">Estimate from my age</button>` +
-    `<p class="hd">A max heart rate measured on a hard effort is better than an estimate. If you are unsure, leave it blank and the run coach will use effort words instead.</p></div>` +
+    `<p class="hd">A max heart rate measured on a hard effort is better than an estimate. If you leave it blank, the app uses an estimate from your age automatically and the coach treats effort readings as approximate.</p></div>` +
     `<p class="hd">Stored in your account. Only your age, sex, height, goals and training details are shared with the AI coach. Your name and exact birth date are not.</p>` +
     `<button type="button" class="btn gbtn" data-psave="1">Save</button>` +
     (first ? `<button type="button" class="btn2 gbtn" data-pskip="1">Skip for now</button>` : `<button type="button" class="btn2 gbtn" data-pcancel="1">Cancel</button>`) +
@@ -2677,6 +2734,9 @@ function readProfile() {
     days: v("pDays"), level: v("pLevel"), equip: v("pEquip"),
     acts: Array.prototype.map.call(document.querySelectorAll("[data-pact]:checked"), (e) => e.dataset.pact),
     kmGoal: kmGoal > 0 && kmGoal < 1000 ? kmGoal : 0,
+    easyKm: (() => { const u = Number(v("pEasyKm").replace(",", ".")) || 0; return u > 0 && u < 100 ? u : 0; })(),
+    longKm: (() => { const u = Number(v("pLongKm").replace(",", ".")) || 0; return u > 0 && u < 100 ? u : 0; })(),
+    usualKm: (() => { const u = Number(v("pUsualKm").replace(",", ".")) || 0; return u > 0 && u < 300 ? u : 0; })(),
     raceType: v("pRace"),
     raceDate: v("pRace") ? v("pRaceDate") : "",
     maxHr: parseInt(v("pMaxHr"), 10) || 0,
