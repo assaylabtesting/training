@@ -2560,7 +2560,7 @@ function aiNormPlan(p) {
 }
 // Only changes that are safe to apply get through: gym days, real exercises, sane plans, capped size.
 function cleanAiChanges(raw) {
-  const list = raw && Array.isArray(raw.changes) ? raw.changes.slice(0, 6) : [];
+  const list = raw && Array.isArray(raw.changes) ? raw.changes.slice(0, 20) : [];
   const ew = effectiveWeek(state.program);
   const lib = {}, known = {};
   LIBRARY.forEach((n) => { lib[n.toLowerCase()] = n; });
@@ -2571,6 +2571,7 @@ function cleanAiChanges(raw) {
   DAY_KEYS.forEach((k) => { const ss = SESSIONS[ew[k]]; sim[k] = ss && ss.kind === "gym" ? getItems(ew[k]).map((i) => i.n) : null; });
   const out = [];
   list.forEach((c) => {
+    if (out.length >= 6) return;
     if (!c || typeof c !== "object") return;
     const day = dayOf(c.day);
     if (!day || !sim[day]) return;
@@ -2709,7 +2710,7 @@ function aiApply() {
     const prev = state.program;
     const c0 = copyProgram(prev);
     const id = newId();
-    state.customPrograms.push({ id, name: (PROGRAMS[prev].name + " (AI)").slice(0, 40), blurb: "Edited with AI.", week: c0.week, sessions: c0.sessions, runWith: c0.runWith });
+    state.customPrograms.push({ id, name: PROGRAMS[prev].name.slice(0, 35) + " (AI)", blurb: "Edited with AI.", week: c0.week, sessions: c0.sessions, runWith: c0.runWith });
     registerCustom(state.customPrograms);
     state.program = "c:" + id;
     undo = { kind: "copy", pid: "c:" + id, prev };
