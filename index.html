@@ -312,6 +312,7 @@ details[open]>summary::after{content:"\2212"}
 .plist li span{color:var(--muted)}
 .plist li b{font-weight:500;text-align:right}
 .btn.danger{background:#B3261E;border-color:#B3261E;color:#fff}
+.rf select{width:100%;min-height:44px;padding:0 10px;font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
 .howbtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12px;font-weight:500;color:var(--ink)}
 #sheet:empty{display:none}
 .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
@@ -972,6 +973,7 @@ function load() {
   if (!base.history || typeof base.history !== "object") base.history = {};
   if (!Array.isArray(base.body)) base.body = [];
   if (!Array.isArray(base.runs)) base.runs = [];
+  if (!Array.isArray(base.combat)) base.combat = [];
   if (!JS_DAYS.includes(base.bodyDay)) base.bodyDay = "sun";
   if (!base.custom || typeof base.custom !== "object") base.custom = {};
   if (!base.custom.sessions || typeof base.custom.sessions !== "object") base.custom.sessions = {};
@@ -1338,6 +1340,83 @@ function addPastEntry() {
   render();
 }
 
+function fmtMin(m) {
+  m = Math.round(m);
+  const h = Math.floor(m / 60), r = m % 60;
+  return h ? (r ? h + " h " + r + " min" : h + " h") : m + " min";
+}
+function sportName(s) { return COMBAT_INFO[s] && s !== "combat" ? COMBAT_INFO[s].title : "Combat"; }
+function combatOn(ds) { return state.combat.filter((x) => x.d === ds); }
+function combatSportDefault() {
+  if (state.combatSport && COMBAT_INFO[state.combatSport]) return state.combatSport;
+  const sel = ((state.profile && state.profile.acts) || []).filter((a) => COMBAT_INFO[a] && a !== "combat");
+  if (sel.length === 1) return sel[0];
+  const last = state.combat.length ? state.combat[state.combat.length - 1].sport : "";
+  return COMBAT_INFO[last] && last !== "combat" ? last : "";
+}
+function combatItem(x) {
+  if (pendingDel === "k|" + x.id) {
+    return `<div class="runitem confirm"><div><p class="warn">Delete this session? It is removed from your weekly time and history. This can't be undone.</p>` +
+      `<div class="inl2"><button type="button" class="btn danger" data-delok="k|${x.id}">Delete</button><button type="button" class="btn2" data-delno="1">Cancel</button></div></div></div>`;
+  }
+  return `<div class="runitem"><div>${fmtDate(x.d)}: ${esc(sportName(x.sport))}, ${fmtMin(x.min)}<small>${x.hr ? "Avg heart rate " + x.hr + " bpm" : "No heart rate logged"}</small></div>` +
+    `<button type="button" aria-label="Delete session from ${fmtDate(x.d)}" data-delcombat="${x.id}">\u00d7</button></div>`;
+}
+function combatLog() {
+  const wk = weekKey();
+  const mine = state.combat.filter((x) => x.w === wk).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : b.id - a.id));
+  const total = mine.reduce((t, x) => t + x.min, 0);
+  const def = combatSportDefault();
+  const opts = [["", "Choose sport"], ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["mma", "MMA"], ["bjj", "BJJ"], ["othercombat", "Other"]]
+    .map((o) => `<option value="${o[0]}"${o[0] === def ? " selected" : ""}>${o[1]}</option>`).join("");
+  return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${mine.length} ${mine.length === 1 ? "session" : "sessions"}, ${fmtMin(total)}</span></div>` +
+    `<h4>Log this session</h4><div class="rf">` +
+    `<label>Date<input id="kDate" type="date" value="${entryDate()}" max="${ymd(new Date())}"></label>` +
+    `<label>Sport<select id="kSport">${opts}</select></label>` +
+    `<div class="r3"><label>Duration (min)<input id="kMin" type="text" inputmode="numeric" placeholder="60" autocomplete="off"></label>` +
+    `<label>Avg heart rate<input id="kHr" type="text" inputmode="numeric" placeholder="bpm, optional" autocomplete="off"></label></div>` +
+    `<p class="hint" id="kHint">Saving the duration marks the day as done. Add heart rate if your watch has it.</p>` +
+    `<button type="button" class="btn" data-combatsave="1">Save session</button></div>` +
+    (mine.length ? `<div class="runlist"><div class="wkrow"><b>Sessions this week</b></div>${mine.map(combatItem).join("")}</div>` : "") + `</div>`;
+}
+function saveCombat() {
+  const el = (id) => document.getElementById(id);
+  const hint = el("kHint");
+  const min = parseInt(el("kMin").value, 10);
+  const hr = parseInt(el("kHr").value, 10);
+  const ds = el("kDate").value || entryDate();
+  if (!(min > 0 && min <= 600)) { hint.textContent = "Enter the duration in minutes."; return; }
+  if (ds > ymd(new Date())) { hint.textContent = "Choose a date up to today."; return; }
+  const sport = el("kSport").value;
+  state.combat.push({ id: Date.now(), w: wkOf(ds), d: ds, sport: sport || "combat", min, hr: hr >= 30 && hr <= 250 ? hr : 0 });
+  state.combat.sort((a, b) => a.id - b.id);
+  if (sport) state.combatSport = sport;
+  save(); render();
+}
+function combatCard() {
+  const list = state.combat.slice().sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : a.id - b.id));
+  if (!list.length) return "";
+  const last = list[list.length - 1];
+  const wk = weekKey();
+  const weekMin = list.filter((x) => x.w === wk).reduce((t, x) => t + x.min, 0);
+  const byWeek = {};
+  list.forEach((x) => { byWeek[x.w] = (byWeek[x.w] || 0) + x.min; });
+  const weeks = Object.keys(byWeek).sort().slice(-6).reverse();
+  const mx = Math.max.apply(null, weeks.map((w) => byWeek[w]));
+  const wrows = weeks.map((w) =>
+    `<div class="wkrow"><span>Week of ${fmtDate(w)}</span><b>${fmtMin(byWeek[w])}</b></div>` +
+    `<div class="meter"><i style="width:${Math.round((byWeek[w] / mx) * 100)}%"></i></div>`
+  ).join("");
+  const hrPts = list.filter((x) => x.hr).map((x) => ({ d: x.d, kg: x.hr }));
+  const all = list.slice().reverse().map(combatItem).join("");
+  return `<section class="hcard"><div class="hrow"><h3 class="hn">Combat</h3><span class="hv">${fmtMin(last.min)}</span></div>` +
+    `<p class="hd">Latest: ${esc(sportName(last.sport))} on ${fmtDate(last.d)}${last.hr ? ", avg " + last.hr + " bpm" : ""}. ${fmtMin(weekMin)} this week.</p>` +
+    (list.length > 1 ? chart(list.map((x) => ({ d: x.d, kg: x.min })), "body", (v) => Math.round(v) + " min") : `<p class="hint">Log another session to see a graph.</p>`) +
+    `<p class="hd">The graph shows minutes per session. Time per week:</p>${wrows}` +
+    (hrPts.length > 1 ? `<p class="hd">Average heart rate per session</p>` + chart(hrPts, "gym", (v) => Math.round(v) + " bpm") : "") +
+    `<details${pendingDel && pendingDel.indexOf("k|") === 0 ? " open" : ""}><summary>All sessions (${list.length})</summary>${all}</details></section>`;
+}
+
 function weekStats() {
   const wk = weekKey();
   const sessions = new Set();
@@ -1347,7 +1426,8 @@ function weekStats() {
   Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (wkOf(x.d) === wk) logged++; }));
   const bw = state.body.slice(-2);
   return {
-    sessionsDone: sessions.size,
+    sessionsDone: sessions.size + state.combat.filter((x) => x.w === wk).length,
+    combatMinutes: state.combat.filter((x) => x.w === wk).reduce((t, x) => t + x.min, 0),
     runKm: Math.round(wr.reduce((t, r) => t + r.km, 0) * 100) / 100,
     runs: wr.length,
     exerciseEntries: logged,
@@ -1417,6 +1497,7 @@ function exportData(kind) {
   ])));
   state.body.forEach((x) => rows.push(["body_weight", x.d, "", x.kg, "", "", "", "", "", "", ""]));
   state.runs.forEach((r) => rows.push(["run", r.d, "", "", "", r.km, Math.round(r.sec / 6) / 10, fmtDur(r.sec / r.km), r.hr || "", r.cad || "", r.stride || ""]));
+  state.combat.forEach((c) => rows.push(["combat", c.d, sportName(c.sport), "", "", "", c.min, "", c.hr || "", "", ""]));
   rows.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
   download("cadence-pro-" + day + ".csv", [head].concat(rows).map((r) => r.map(q).join(",")).join("\n"), "text/csv");
 }
@@ -1531,6 +1612,8 @@ function confirmDelete(dk) {
   pendingDel = "";
   if (parts[0] === "r") {
     state.runs = state.runs.filter((x) => String(x.id) !== parts[1]);
+  } else if (parts[0] === "k") {
+    state.combat = state.combat.filter((x) => String(x.id) !== parts[1]);
   } else if (parts[0] === "h") {
     const slg = parts[1], d = parts[2];
     const h = state.history[slg];
@@ -1565,14 +1648,14 @@ function entriesList(e, key, kind) {
 function historyView() {
   const keys = Object.keys(state.history).filter((k) => state.history[k].e.length);
   if (!keys.length) {
-    return weeklyCard() + addEntryCard() + runsCard() + `<div class="empty">${KIND_ICON.gym}<b>No weights logged yet</b><span>Enter a weight on any exercise in the Program tab. It shows up here with a graph of your progress.</span></div>`;
+    return weeklyCard() + addEntryCard() + runsCard() + combatCard() + `<div class="empty">${KIND_ICON.gym}<b>No weights logged yet</b><span>Enter a weight on any exercise in the Program tab. It shows up here with a graph of your progress.</span></div>`;
   }
   keys.sort((a, b) => {
     const la = state.history[a].e[state.history[a].e.length - 1].d;
     const lb = state.history[b].e[state.history[b].e.length - 1].d;
     return la < lb ? 1 : la > lb ? -1 : state.history[a].n.localeCompare(state.history[b].n);
   });
-  return weeklyCard() + addEntryCard() + runsCard() + `<p class="blurb">Your logged weight for each exercise, one point per day. Most recent first.</p>` +
+  return weeklyCard() + addEntryCard() + runsCard() + combatCard() + `<p class="blurb">Your logged weight for each exercise, one point per day. Most recent first.</p>` +
     keys.map((k) => {
       const h = state.history[k];
       const e = h.e;
@@ -1743,7 +1826,8 @@ function insightPayload() {
     units: unitW(),
     weeklyRunGoalKm: GOAL_KM,
     runKmThisWeek: Math.round(weekKm * 100) / 100,
-    exercises, otherExercisesLogged: others, runs, weeklyRunKm: weeklyKm, bodyWeights: body
+    exercises, otherExercisesLogged: others, runs, weeklyRunKm: weeklyKm, bodyWeights: body,
+    combatSessions: state.combat.slice(-8).map((x) => ({ date: x.d, sport: sportName(x.sport), minutes: x.min, avgHr: x.hr || undefined }))
   };
 }
 
@@ -2241,11 +2325,13 @@ const COMBAT_INFO = {
 };
 function hasCombat(acts) { return (acts || []).some((a) => !!COMBAT_INFO[a]); }
 function syncCombat() {
+  const chosen = state.combatSport && COMBAT_INFO[state.combatSport] ? state.combatSport : "";
   const sel = ((state.profile && state.profile.acts) || []).filter((a) => !!COMBAT_INFO[a]);
+  const pick = chosen ? [chosen] : sel;
   const c = SESSIONS.combat;
-  if (!sel.length) { c.title = COMBAT_INFO.combat.title; c.note = COMBAT_INFO.combat.note; return; }
-  c.title = sel.map((a) => COMBAT_INFO[a].title).join(" / ");
-  c.note = sel.length === 1 ? COMBAT_INFO[sel[0]].note : "Hard session. Keep the next day's training lighter.";
+  if (!pick.length) { c.title = COMBAT_INFO.combat.title; c.note = COMBAT_INFO.combat.note; return; }
+  c.title = pick.map((a) => COMBAT_INFO[a].title).join(" / ");
+  c.note = pick.length === 1 ? COMBAT_INFO[pick[0]].note : "Hard session. Keep the next day's training lighter.";
 }
 
 function syncGoal() { GOAL_KM = (state.profile && state.profile.kmGoal) || 15; }
@@ -2449,6 +2535,7 @@ function dayDone(d, wd) {
   const s = SESSIONS[sid];
   if (s.kind === "gym") { const c = counts(sid); return c.total > 0 && c.done === c.total; }
   if (s.kind === "run") return state.runs.some((r) => r.d === wd[d].ds);
+  if (s.kind === "combat") return state.combat.some((x) => x.d === wd[d].ds);
   return false;
 }
 
@@ -2498,7 +2585,7 @@ function render() {
       `</li>`;
   }).join("");
 
-  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "run" ? runLog("") : (prog.runWith && prog.runWith[selected] ? runLog(prog.runWith[selected]) : ""));
+  const body = editing ? editBody(sid, items) : (rows ? `<ul class="list">${rows}</ul>` : "") + (s.tip ? `<p class="tip">${esc(s.tip)}</p>` : "") + (s.kind === "combat" ? combatLog() : (s.kind === "run" ? runLog("") : (prog.runWith && prog.runWith[selected] ? runLog(prog.runWith[selected]) : "")));
 
   const tabs = tabBar();
   if (tab === "history") { $app.innerHTML = topbar() + tabs + historyView(); return; }
@@ -2515,6 +2602,7 @@ function render() {
       (c.total && !editing ? `<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${c.total}" aria-valuenow="${c.done}"><i style="width:${Math.round((c.done / c.total) * 100)}%"></i></div>` : "") +
       `</div>` +
       (c.total && !editing && c.done === c.total ? `<div class="complete">${CHECK_ICON}<span>Session complete. Nice work.</span></div>` : "") +
+      (!editing && s.kind === "combat" && combatOn(wd[selected].ds).length ? `<div class="complete">${CHECK_ICON}<span>Session logged. ${esc(combatOn(wd[selected].ds).map((x) => fmtMin(x.min) + (x.hr ? ", avg " + x.hr + " bpm" : "")).join(" and "))}</span></div>` : "") +
       body +
     `</section>` +
     insightCard() +
@@ -2579,6 +2667,9 @@ $app.addEventListener("click", (e) => {
   const tb = e.target.closest("[data-tab]");
   if (tb) { tab = tb.dataset.tab; editing = false; pendingDel = ""; render(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-runsave]")) { saveRun(); return; }
+  if (e.target.closest("[data-combatsave]")) { saveCombat(); return; }
+  const dck = e.target.closest("[data-delcombat]");
+  if (dck) { pendingDel = "k|" + dck.dataset.delcombat; render(); return; }
   const dr = e.target.closest("[data-delrun]");
   if (dr) { pendingDel = "r|" + dr.dataset.delrun; render(); return; }
   if (e.target.closest("[data-delno]")) { pendingDel = ""; render(); return; }
@@ -2643,6 +2734,18 @@ $app.addEventListener("change", (e) => {
     const isKg = !!sk.dataset.setkg;
     const parts = (isKg ? sk.dataset.setkg : sk.dataset.setreps).split("|");
     recordSet(parts[0], sk.dataset.sname, Number(parts[1]), isKg ? "kg" : "reps", sk.value);
+    return;
+  }
+  if (e.target.id === "kSport") {
+    state.combatSport = e.target.value;
+    save();
+    syncCombat();
+    if (getSid(selected) === "combat") {
+      const h2 = document.querySelector(".phead h2");
+      const nt = document.querySelector(".phead .note");
+      if (h2) h2.textContent = SESSIONS.combat.title;
+      if (nt) nt.textContent = SESSIONS.combat.note;
+    }
     return;
   }
   if (e.target.id === "cpFrom") { document.getElementById("cpDays").hidden = e.target.value !== "blank"; return; }
@@ -2803,6 +2906,7 @@ function normalizeState(b) {
   if (!b.history || typeof b.history !== "object") b.history = {};
   if (!Array.isArray(b.body)) b.body = [];
   if (!Array.isArray(b.runs)) b.runs = [];
+  if (!Array.isArray(b.combat)) b.combat = [];
   if (!JS_DAYS.includes(b.bodyDay)) b.bodyDay = "sun";
   if (!b.custom || typeof b.custom !== "object") b.custom = {};
   if (!b.custom.sessions || typeof b.custom.sessions !== "object") b.custom.sessions = {};
@@ -2840,6 +2944,9 @@ function mergeState(loc, remote) {
   out.body.sort((p, q) => (p.d < q.d ? -1 : 1));
   loc.runs.forEach((x) => { if (!out.runs.some((y) => y.id === x.id)) out.runs.push(x); });
   out.runs.sort((p, q) => p.id - q.id);
+  (loc.combat || []).forEach((x) => { if (!out.combat.some((y) => y.id === x.id)) out.combat.push(x); });
+  out.combat.sort((p, q) => p.id - q.id);
+  if (!out.combatSport && loc.combatSport) out.combatSport = loc.combatSport;
   out.custom.sessions = Object.assign({}, loc.custom.sessions, out.custom.sessions);
   Object.keys(loc.custom.week).forEach((p) => {
     out.custom.week[p] = Object.assign({}, loc.custom.week[p], out.custom.week[p]);
