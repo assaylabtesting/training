@@ -2242,13 +2242,18 @@ function shareView() {
   const name = PROGRAMS[state.program] ? PROGRAMS[state.program].name : "Program";
   const canNative = typeof navigator !== "undefined" && !!navigator.share;
   return `<section class="hcard"><h3 class="hn">Share program</h3><p class="hd">${esc(name)}</p>` +
-    `<p class="hd">Anyone with the link can add their own copy. It does not include your name, history, weights or profile.</p>` +
+    `<p class="hd">Send it straight to another Cadence Pro user, or share a link. The program does not include your history, weights or profile. Your name is shown to the person who gets it.</p>` +
+    (user
+      ? `<div class="ctl2"><label for="shEmail">Send to a Cadence Pro user</label><input id="shEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" placeholder="their email address"></div>` +
+        `<button type="button" class="btn gbtn" data-sendshare="1">Send program</button><p class="hd" id="sendMsg"></p>`
+      : `<p class="hd">Sign in to send a program straight to another user's account.</p>`) +
+    `<details class="mt12"${user ? "" : " open"}><summary>Or share a link</summary>` +
     (shareLink
       ? (canNative ? `<button type="button" class="btn gbtn" data-sharego="native">Share...</button>` : "") +
         `<div class="inl2 mt8"><button type="button" class="btn2" data-sharego="copy">Copy link</button><button type="button" class="btn2" data-sharego="email">Email</button></div>` +
         `<div class="ctl2 mt12"><label for="shareBox">Link</label><textarea id="shareBox" readonly rows="3">${esc(shareLink)}</textarea></div>`
       : "") +
-    `<p class="hd" id="shareMsg">${esc(shareMsg)}</p>` +
+    `<p class="hd" id="shareMsg">${esc(shareMsg)}</p></details>` +
     `<button type="button" class="btn2 gbtn" data-pback="1">Back</button></section>`;
 }
 async function shareGo(kind) {
@@ -2280,24 +2285,24 @@ function importView() {
   const cp = incomingData.cp;
   const lines = DAY_KEYS.map((d) => `<li><span>${SHORT[d]}</span><b>${cp.week[d] ? esc(cp.sessions[cp.week[d]].title) : "Rest"}</b></li>`).join("");
   const exCount = Object.keys(cp.sessions).reduce((t, k) => t + cp.sessions[k].items.length, 0);
-  return `<section class="hcard"><h3 class="hn">Add this program?</h3><p class="hd">Someone shared a program with you.</p>` +
+  return `<section class="hcard"><h3 class="hn">Add this program?</h3><p class="hd">${incomingData.from ? esc(incomingData.from) : "Someone"} shared a program with you.</p>` +
     `<div class="hrow"><h3 class="hn">${esc(cp.name)}</h3></div>` +
     `<p class="hd">${Object.keys(cp.week).length} training days, ${exCount} exercises</p><ul class="plist">${lines}</ul>` +
     `<p class="hd">It goes into your Shared programs as your own copy. Your edits never change the sender's program.</p>` +
     `<button type="button" class="btn gbtn" data-import="use">Add and start using it</button>` +
     `<button type="button" class="btn2 gbtn" data-import="add">Add to Shared only</button>` +
-    `<button type="button" class="btn2 gbtn" data-import="no">No thanks</button><p class="hd" id="impMsg"></p></section>`;
+    `<button type="button" class="btn2 gbtn" data-import="no">${incomingData.inbox ? "Decline" : "No thanks"}</button><p class="hd" id="impMsg"></p></section>`;
 }
 function doImport(kind) {
-  if (kind === "no" || !incomingData || incomingData.error) { clearIncoming(); pview = ""; render(); return; }
+  if (kind === "no" || !incomingData || incomingData.error) { finishIncoming(); pview = ""; render(); return; }
   const msg = document.getElementById("impMsg");
   if (state.customPrograms.length >= MAX_CUSTOM) { if (msg) msg.textContent = "You already have " + MAX_CUSTOM + " custom and shared programs. Delete one first."; return; }
   const cp = incomingData.cp;
   const id = newId();
-  state.customPrograms.push({ id, name: cp.name, blurb: "Shared with you.", week: cp.week, sessions: cp.sessions, runWith: cp.runWith, from: "link" });
+  state.customPrograms.push({ id, name: cp.name, blurb: "Shared with you.", week: cp.week, sessions: cp.sessions, runWith: cp.runWith, from: incomingData.inbox ? "inbox" : "link" });
   registerCustom(state.customPrograms);
   if (kind === "use") { state.program = "c:" + id; tab = "program"; selected = startDay(state.program); editing = false; }
-  clearIncoming(); pview = ""; save(); render(); window.scrollTo(0, 0);
+  finishIncoming(); pview = ""; save(); render(); window.scrollTo(0, 0);
 }
 
 /* ---------- How-to sheet with video ---------- */
@@ -2355,6 +2360,74 @@ document.getElementById("sheet").addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && document.getElementById("sheet").innerHTML) closeHow();
 });
+
+/* ---------- Sending a program to another user's account ---------- */
+let inbox = [];
+
+function finishIncoming() {
+  const d = incomingData;
+  if (d && d.inbox && d.shareId && sb && user) {
+    inbox = inbox.filter((x) => x.id !== d.shareId);
+    sb.from("program_shares").delete().eq("id", d.shareId).then(() => {}, () => {});
+  }
+  if (d && d.inbox) incomingData = null; else clearIncoming();
+}
+async function loadInbox() {
+  if (!sb || !user) { inbox = []; return; }
+  try {
+    const r = await sb.from("program_shares").select("id, name, sender_name, created_at, payload").order("created_at", { ascending: false }).limit(20);
+    if (r.error) return;
+    const list = (r.data || []).filter((x) => { try { return !!cleanShare(x.payload); } catch (e) { return false; } });
+    const changed = JSON.stringify(list.map((x) => x.id)) !== JSON.stringify(inbox.map((x) => x.id));
+    inbox = list;
+    const a = document.activeElement;
+    const typing = a && (a.tagName === "INPUT" || a.tagName === "SELECT" || a.tagName === "TEXTAREA");
+    if (changed && !pview && tab === "program" && !editing && !typing) render();
+  } catch (e) {}
+}
+function inboxBanner() {
+  if (!inbox.length) return "";
+  const x = inbox[0];
+  const who = cleanStr(x.sender_name, 40) || "Someone";
+  const more = inbox.length > 1 ? " and " + (inbox.length - 1) + " more" : "";
+  return `<section class="hcard inbox"><div class="hrow"><b>New shared program${inbox.length > 1 ? "s" : ""}</b></div>` +
+    `<p class="hd">${esc(who)} sent you "${esc(cleanStr(x.name, 60))}"${more}.</p>` +
+    `<button type="button" class="btn gbtn" data-inbox="0">View</button></section>`;
+}
+function openInbox(i) {
+  const x = inbox[i];
+  if (!x) return;
+  const cp = cleanShare(x.payload);
+  if (!cp) return;
+  incomingData = { cp, shareId: x.id, from: cleanStr(x.sender_name, 40), inbox: true };
+  pview = "import";
+  render();
+  window.scrollTo(0, 0);
+}
+async function sendShare() {
+  const msg = document.getElementById("sendMsg");
+  const inp = document.getElementById("shEmail");
+  const email = inp ? inp.value.trim().toLowerCase() : "";
+  if (!sb || !user) { msg.textContent = "Sign in to send a program to another user."; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) { msg.textContent = "Enter a valid email address."; return; }
+  const payload = buildShare();
+  if (JSON.stringify(payload).length > 38000) { msg.textContent = "This program is too large to send."; return; }
+  msg.textContent = "Sending...";
+  const btn = document.querySelector("[data-sendshare]");
+  if (btn) btn.disabled = true;
+  try {
+    const r = await sb.rpc("send_program_share", { p_email: email, p_name: PROGRAMS[state.program].name, p_payload: payload, p_sender_name: (state.profile && state.profile.name) || "" });
+    if (r.error) {
+      msg.textContent = /limit/i.test(r.error.message || "") ? "You have reached today's sharing limit. Try again tomorrow." : "Could not send. Check your connection and try again.";
+    } else {
+      msg.textContent = "Sent. If that email has a Cadence Pro account, they will see it when they open the app.";
+      if (inp) inp.value = "";
+    }
+  } catch (e) {
+    msg.textContent = "Could not send. Check your connection and try again.";
+  }
+  if (btn) btn.disabled = false;
+}
 
 let pview = "";
 const FAMILIES = ["Custom Program", "Shared", "Build muscle", "Strength", "Fat loss and cardio", "Running", "At home", COMBAT_FAMILY];
@@ -2642,7 +2715,7 @@ function render() {
   if (tab === "history") { $app.innerHTML = topbar() + tabs + historyView(); return; }
   if (tab === "body") { $app.innerHTML = topbar() + tabs + bodyView(); return; }
   $app.innerHTML =
-    topbar() + tabs +
+    topbar() + tabs + inboxBanner() +
     `<p class="progline">${esc(prog.name)}</p>` +
     `<div class="week" role="group" aria-label="Week">${week}</div>` +
     weighPrompt() +
@@ -2680,6 +2753,9 @@ $app.addEventListener("click", (e) => {
   const pf = e.target.closest("[data-profile]");
   if (e.target.closest("[data-newprog]")) { pview = "create"; render(); window.scrollTo(0, 0); return; }
   if (e.target.closest("[data-shareprog]")) { startShare(); window.scrollTo(0, 0); return; }
+  if (e.target.closest("[data-sendshare]")) { sendShare(); return; }
+  const ibx = e.target.closest("[data-inbox]");
+  if (ibx) { openInbox(Number(ibx.dataset.inbox)); return; }
   const sgo = e.target.closest("[data-sharego]");
   if (sgo) { shareGo(sgo.dataset.sharego); return; }
   if (e.target.closest("[data-createprog]")) { createProgram(); return; }
@@ -3053,6 +3129,7 @@ async function onSignedIn(session, mode) {
   }
   if (!state.profile && !state.profileSkip) pview = "profile";
   render();
+  loadInbox();
 }
 
 function showAuth(msg) {
@@ -3169,6 +3246,7 @@ window.addEventListener("online", () => { if (user && isDirty()) pushNow(); });
 
 document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState !== "visible" || !sb || !user) return;
+  loadInbox();
   if (isDirty()) { pushNow(); return; }
   try {
     const r = await sb.from("user_data").select("data, updated_at").eq("user_id", user.id).maybeSingle();
@@ -3201,6 +3279,8 @@ async function boot() {
   try { guest = localStorage.getItem(GUEST_KEY) === "1"; } catch (e) {}
   if (guest) render(); else showAuth();
 }
+
+setInterval(() => { if (user && document.visibilityState === "visible") loadInbox(); }, 90000);
 
 boot();
 </script>
