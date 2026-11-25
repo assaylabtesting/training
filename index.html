@@ -331,6 +331,9 @@ input[type="date"]::-webkit-datetime-edit{padding:0}
 .r2{grid-template-columns:repeat(3,minmax(0,1fr))}
 .r3,.dstats.two,.inl2,.inl3{grid-template-columns:repeat(2,minmax(0,1fr))}
 .inl,.add{grid-template-columns:minmax(0,1fr) 84px}
+#toast:empty{display:none}
+.toast-bar{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:70;display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:496px;margin:0 auto;padding:10px 12px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.toast-bar button{background:none;border:0;color:inherit;font-weight:600;text-decoration:underline;min-height:40px;padding:0 8px}
 .howbtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12px;font-weight:500;color:var(--ink)}
 #sheet:empty{display:none}
 .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
@@ -353,6 +356,7 @@ input[type="date"]::-webkit-datetime-edit{padding:0}
 <body>
 <div class="wrap" id="app"></div>
 <div id="sheet"></div>
+<div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
 <script>
@@ -927,6 +931,39 @@ const LEGACY_NAMES = {
   "Spanish squat hold or wall sit": "Spanish squat hold",
   "Backward sled drag or incline walk": "Backward sled drag"
 };
+function pruneDone(st) {
+  if (!st.done || typeof st.done !== "object") st.done = {};
+  const cur = weekKey();
+  Object.keys(st.done).forEach((k) => { if (wkOf(k.slice(0, 10)) !== cur) delete st.done[k]; });
+}
+function migrateDone(st) {
+  if (!st || st.doneV === 2) return false;
+  st.doneV = 2;
+  const old = st.done && typeof st.done === "object" ? st.done : {};
+  const out = {};
+  const prog = PROGRAMS[st.program];
+  if (prog) {
+    const ov = (st.custom && st.custom.week && st.custom.week[st.program]) || {};
+    const mon = weekKey();
+    const m = new Date(mon + "T00:00:00");
+    const today = ymd(new Date());
+    Object.keys(old).forEach((k) => {
+      const parts = k.split("|");
+      if (parts.length < 3 || parts[0] !== mon) return;
+      const sid = parts[1], slg = parts.slice(2).join("|");
+      const days = [];
+      ORDER.forEach((d, i) => {
+        const s2 = SESSIONS[ov[d]] ? ov[d] : prog.week[d];
+        if (s2 === sid) days.push(ymd(new Date(m.getFullYear(), m.getMonth(), m.getDate() + i)));
+      });
+      if (!days.length) return;
+      const past = days.filter((ds) => ds <= today);
+      out[(past.length ? past[past.length - 1] : days[0]) + "|" + sid + "|" + slg] = true;
+    });
+  }
+  st.done = out;
+  return true;
+}
 function migrateLegacy(st) {
   if (!st || typeof st !== "object") return false;
   let changed = false;
@@ -986,8 +1023,7 @@ function load() {
     const s = JSON.parse(localStorage.getItem(KEY));
     if (s && typeof s === "object") Object.assign(base, s);
   } catch (e) {}
-  const wk = weekKey() + "|";
-  Object.keys(base.done).forEach((k) => { if (!k.startsWith(wk)) delete base.done[k]; });
+  if (!base.done || typeof base.done !== "object") base.done = {};
   if (!base.history || typeof base.history !== "object") base.history = {};
   if (!Array.isArray(base.body)) base.body = [];
   if (!Array.isArray(base.runs)) base.runs = [];
@@ -999,6 +1035,8 @@ function load() {
   if (!Array.isArray(base.customPrograms)) base.customPrograms = [];
   registerCustom(base.customPrograms);
   if (!PROGRAMS[base.program]) base.program = "fb3";
+  migrateDone(base);
+  pruneDone(base);
   migrateLegacy(base);
   return base;
 }
@@ -1199,7 +1237,62 @@ function parseKg(v) {
   return isFinite(n) && n > 0 && n < 1000 ? n : null;
 }
 
+let toastUndo = null, toastTimer = null;
+function hideToast() { const el = document.getElementById("toast"); if (el) el.innerHTML = ""; toastUndo = null; }
+function showToast(text, undo) {
+  const el = document.getElementById("toast");
+  toastUndo = undo || null;
+  el.innerHTML = `<div class="toast-bar" role="status"><span>${esc(text)}</span>${undo ? `<button type="button" data-undo="1">Undo</button>` : ""}</div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 7000);
+}
+document.getElementById("toast").addEventListener("click", (e) => {
+  if (!e.target.closest("[data-undo]")) return;
+  const f = toastUndo;
+  hideToast();
+  if (f) f();
+});
+
+function refreshWeight(slg) {
+  const h = state.history[slg];
+  const ks = h ? h.e.filter((x) => x.kg > 0) : [];
+  if (ks.length) state.weights[slg] = String(ks[ks.length - 1].kg); else delete state.weights[slg];
+}
+function removeEntry(slg, ds) {
+  const h = state.history[slg];
+  if (!h) return null;
+  const i = h.e.findIndex((x) => x.d === ds);
+  if (i < 0) return null;
+  const ent = h.e.splice(i, 1)[0];
+  if (!h.e.length) delete state.history[slg];
+  refreshWeight(slg);
+  return ent;
+}
+function restoreEntry(slg, name, ent) {
+  const h = state.history[slg] || (state.history[slg] = { n: name, e: [] });
+  h.n = name;
+  h.e.push(ent);
+  h.e.sort((a, b) => (a.d < b.d ? -1 : 1));
+  refreshWeight(slg);
+}
+function clearWeightEntry(slg) {
+  const ds = entryDate();
+  if (dayDate(selected) !== ds) return;
+  const h = state.history[slg];
+  const ex = h ? h.e.find((x) => x.d === ds) : null;
+  if (!ex) return;
+  if (ex.sets && ex.sets.length) {
+    const ks = ex.sets.map((s) => s.kg).filter((k) => k > 0);
+    ex.kg = ks.length ? Math.max.apply(null, ks) : 0;
+  } else {
+    removeEntry(slg, ds);
+  }
+  refreshWeight(slg);
+  save();
+}
+
 function recordWeight(slg, name, val) {
+  if (String(val).trim() === "") { clearWeightEntry(slg); return; }
   const raw = parseKg(val);
   if (raw === null) return;
   const kg = round3(fromU(raw));
@@ -1469,7 +1562,7 @@ function combatCard() {
 function weekStats() {
   const wk = weekKey();
   const sessions = new Set();
-  Object.keys(state.done).forEach((k) => { if (k.indexOf(wk + "|") === 0) sessions.add(k.split("|")[1]); });
+  Object.keys(state.done).forEach((k) => { if (wkOf(k.slice(0, 10)) === wk) sessions.add(k.split("|")[0] + "|" + k.split("|")[1]); });
   const wr = state.runs.filter((r) => r.w === wk);
   let logged = 0;
   Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (wkOf(x.d) === wk) logged++; }));
@@ -1668,13 +1761,11 @@ function confirmDelete(dk) {
     const h = state.history[slg];
     if (h) {
       h.e = h.e.filter((x) => x.d !== d);
-      if (h.e.length) state.weights[slg] = fmtKg(h.e[h.e.length - 1].kg);
-      else { delete state.history[slg]; delete state.weights[slg]; }
+      if (!h.e.length) delete state.history[slg];
     }
-    if (wkOf(d) === weekKey()) {
-      const suf = "|" + slg;
-      Object.keys(state.done).forEach((k) => { if (k.endsWith(suf)) delete state.done[k]; });
-    }
+    refreshWeight(slg);
+    const suf = "|" + slg;
+    Object.keys(state.done).forEach((k) => { if (k.indexOf(d + "|") === 0 && k.endsWith(suf)) delete state.done[k]; });
   } else {
     state.body = state.body.filter((x) => x.d !== parts[2]);
   }
@@ -1819,7 +1910,8 @@ function editBody(sid, items) {
         `<p class="tip">Edits save on this device. Use the arrows to reorder. Exercise changes apply to every day that uses the session.</p>`);
 }
 
-function doneKey(sid, item) { return weekKey() + "|" + sid + "|" + slug(item.n); }
+function dayDate(day) { const w = weekDays()[day]; return w ? w.ds : entryDate(); }
+function doneKey(sid, item, ds) { return (ds || dayDate(selected)) + "|" + sid + "|" + slug(item.n); }
 
 function getItems(sid) { return state.custom.sessions[sid] || SESSIONS[sid].items; }
 function getSid(day) {
@@ -1827,9 +1919,9 @@ function getSid(day) {
   return SESSIONS[v] ? v : PROGRAMS[state.program].week[day];
 }
 
-function counts(sid) {
+function counts(sid, ds) {
   const items = getItems(sid).filter((i) => !i.opt);
-  const done = items.filter((i) => state.done[doneKey(sid, i)]).length;
+  const done = items.filter((i) => state.done[doneKey(sid, i, ds)]).length;
   return { done, total: items.length };
 }
 
@@ -1844,7 +1936,7 @@ function insightPayload() {
     return {
       exercise: i.n,
       plan: i.s,
-      doneThisWeek: !!state.done[doneKey(sid, i)],
+      doneOnThisDay: !!state.done[doneKey(sid, i)],
       recentWeightsKg: h ? h.e.slice(-12).map(aiEntry) : []
     };
   });
@@ -1948,12 +2040,8 @@ function insightCard() {
 
 /* ---------- Custom programs and sharing ---------- */
 const MAX_CUSTOM = 10;
-const INCOMING_KEY = "training:incoming";
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 let incomingData = null;
-let incomingRawMem = "";
-let shareLink = "";
-let shareMsg = "";
 let delProgAsk = false;
 
 function isCustom(pid) { return typeof pid === "string" && pid.indexOf("c:") === 0; }
@@ -2001,49 +2089,6 @@ function startDay(pid) {
   return t;
 }
 
-function b64url(bytes) {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function unb64url(str) {
-  str = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (str.length % 4) str += "=";
-  const bin = atob(str);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-async function encodeShare(obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  if (typeof CompressionStream !== "undefined") {
-    try {
-      const cs = new CompressionStream("deflate-raw");
-      const w = cs.writable.getWriter();
-      w.write(bytes).catch(() => {}); w.close().catch(() => {});
-      const buf = await new Response(cs.readable).arrayBuffer();
-      return "z" + b64url(new Uint8Array(buf));
-    } catch (e) {}
-  }
-  return "j" + b64url(bytes);
-}
-async function decodeShare(str) {
-  const kind = str.charAt(0);
-  const bytes = unb64url(str.slice(1));
-  let json;
-  if (kind === "z") {
-    const ds = new DecompressionStream("deflate-raw");
-    const w = ds.writable.getWriter();
-    w.write(bytes).catch(() => {}); w.close().catch(() => {});
-    json = await new Response(ds.readable).text();
-  } else if (kind === "j") {
-    json = new TextDecoder().decode(bytes);
-  } else {
-    throw new Error("bad");
-  }
-  if (json.length > 80000) throw new Error("big");
-  return JSON.parse(json);
-}
 function buildShare() {
   const c = copyProgram(state.program);
   const s = {};
@@ -2088,32 +2133,6 @@ function cleanShare(o) {
   const rw = {};
   if (o.r && typeof o.r === "object") DAY_KEYS.forEach((d) => { if (own(o.r, d) && week[d] && o.r[d]) rw[d] = cleanStr(o.r[d], 20); });
   return { name: cleanStr(o.n, 40) || "Shared program", week, sessions, runWith: Object.keys(rw).length ? rw : undefined };
-}
-
-function readIncomingFromUrl() {
-  const h = window.location.hash || "";
-  if (h.indexOf("#p=") !== 0) return;
-  incomingRawMem = h.slice(3);
-  try { localStorage.setItem(INCOMING_KEY, incomingRawMem); } catch (e) {}
-  try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch (e) {}
-}
-async function loadIncoming() {
-  let raw = incomingRawMem;
-  if (!raw) { try { raw = localStorage.getItem(INCOMING_KEY) || ""; } catch (e) {} }
-  if (!raw) return;
-  try {
-    if (raw.length > 12000) throw new Error("big");
-    const cp = cleanShare(await decodeShare(raw));
-    if (!cp) throw new Error("bad");
-    incomingData = { cp };
-  } catch (e) {
-    incomingData = { error: true };
-  }
-}
-function clearIncoming() {
-  incomingData = null;
-  incomingRawMem = "";
-  try { localStorage.removeItem(INCOMING_KEY); } catch (e) {}
 }
 
 function programActions() {
@@ -2226,62 +2245,19 @@ function customControls() {
       : `<button type="button" class="reset" data-delprog="ask">Delete this program</button>`) + `</div>`;
 }
 
-async function startShare() {
-  shareLink = ""; shareMsg = "Preparing your link..."; pview = "share";
-  render();
-  try {
-    const code = await encodeShare(buildShare());
-    shareLink = window.location.origin + window.location.pathname + "#p=" + code;
-    shareMsg = "";
-  } catch (e) {
-    shareMsg = "Could not build the link. Try again.";
-  }
-  if (pview === "share") render();
-}
+function startShare() { pview = "share"; render(); }
 function shareView() {
   const name = PROGRAMS[state.program] ? PROGRAMS[state.program].name : "Program";
-  const canNative = typeof navigator !== "undefined" && !!navigator.share;
   return `<section class="hcard"><h3 class="hn">Share program</h3><p class="hd">${esc(name)}</p>` +
-    `<p class="hd">Send it straight to another Cadence Pro user, or share a link. The program does not include your history, weights or profile. Your name is shown to the person who gets it.</p>` +
+    `<p class="hd">Send it straight to another Cadence Pro user. The program does not include your history, weights or profile. Your name is shown to the person who gets it.</p>` +
     (user
-      ? `<div class="ctl2"><label for="shEmail">Send to a Cadence Pro user</label><input id="shEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" placeholder="their email address"></div>` +
+      ? `<div class="ctl2"><label for="shEmail">Their Cadence Pro email</label><input id="shEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" placeholder="their email address"></div>` +
         `<button type="button" class="btn gbtn" data-sendshare="1">Send program</button><p class="hd" id="sendMsg"></p>`
-      : `<p class="hd">Sign in to send a program straight to another user's account.</p>`) +
-    `<details class="mt12"${user ? "" : " open"}><summary>Or share a link</summary>` +
-    (shareLink
-      ? (canNative ? `<button type="button" class="btn gbtn" data-sharego="native">Share...</button>` : "") +
-        `<div class="inl2 mt8"><button type="button" class="btn2" data-sharego="copy">Copy link</button><button type="button" class="btn2" data-sharego="email">Email</button></div>` +
-        `<div class="ctl2 mt12"><label for="shareBox">Link</label><textarea id="shareBox" readonly rows="3">${esc(shareLink)}</textarea></div>`
-      : "") +
-    `<p class="hd" id="shareMsg">${esc(shareMsg)}</p></details>` +
+      : `<p class="hd">Sign in to send a program to another Cadence Pro user's account.</p><button type="button" class="btn gbtn" data-auth="in">Sign in</button>`) +
     `<button type="button" class="btn2 gbtn" data-pback="1">Back</button></section>`;
-}
-async function shareGo(kind) {
-  const name = PROGRAMS[state.program].name;
-  const text = "Here is my \"" + name + "\" program for Cadence Pro. Open the link to add a copy.";
-  const msg = document.getElementById("shareMsg");
-  if (kind === "native") {
-    try { await navigator.share({ title: name, text, url: shareLink }); } catch (e) {}
-    return;
-  }
-  if (kind === "email") {
-    window.location.href = "mailto:?subject=" + encodeURIComponent("Workout program: " + name) + "&body=" + encodeURIComponent(text + "\n\n" + shareLink);
-    return;
-  }
-  let ok = false;
-  try { await navigator.clipboard.writeText(shareLink); ok = true; } catch (e) {}
-  if (!ok) {
-    const box = document.getElementById("shareBox");
-    if (box) { box.focus(); box.select(); try { ok = document.execCommand("copy"); } catch (e) {} }
-  }
-  if (msg) msg.textContent = ok ? "Link copied." : "Press and hold the link above to copy it.";
 }
 function importView() {
   if (!incomingData) return "";
-  if (incomingData.error) {
-    return `<section class="hcard"><h3 class="hn">Link problem</h3><p class="hd">This program link is not valid or was cut off. Ask the sender to share it again.</p>` +
-      `<button type="button" class="btn gbtn" data-import="no">OK</button></section>`;
-  }
   const cp = incomingData.cp;
   const lines = DAY_KEYS.map((d) => `<li><span>${SHORT[d]}</span><b>${cp.week[d] ? esc(cp.sessions[cp.week[d]].title) : "Rest"}</b></li>`).join("");
   const exCount = Object.keys(cp.sessions).reduce((t, k) => t + cp.sessions[k].items.length, 0);
@@ -2294,7 +2270,7 @@ function importView() {
     `<button type="button" class="btn2 gbtn" data-import="no">${incomingData.inbox ? "Decline" : "No thanks"}</button><p class="hd" id="impMsg"></p></section>`;
 }
 function doImport(kind) {
-  if (kind === "no" || !incomingData || incomingData.error) { finishIncoming(); pview = ""; render(); return; }
+  if (kind === "no" || !incomingData) { finishIncoming(); pview = ""; render(); return; }
   const msg = document.getElementById("impMsg");
   if (state.customPrograms.length >= MAX_CUSTOM) { if (msg) msg.textContent = "You already have " + MAX_CUSTOM + " custom and shared programs. Delete one first."; return; }
   const cp = incomingData.cp;
@@ -2370,7 +2346,7 @@ function finishIncoming() {
     inbox = inbox.filter((x) => x.id !== d.shareId);
     sb.from("program_shares").delete().eq("id", d.shareId).then(() => {}, () => {});
   }
-  if (d && d.inbox) incomingData = null; else clearIncoming();
+  incomingData = null;
 }
 async function loadInbox() {
   if (!sb || !user) { inbox = []; return; }
@@ -2655,7 +2631,7 @@ function weekDays() {
 function dayDone(d, wd) {
   const sid = getSid(d);
   const s = SESSIONS[sid];
-  if (s.kind === "gym") { const c = counts(sid); return c.total > 0 && c.done === c.total; }
+  if (s.kind === "gym") { const c = counts(sid, wd[d].ds); return c.total > 0 && c.done === c.total; }
   if (s.kind === "run") return state.runs.some((r) => r.d === wd[d].ds);
   if (s.kind === "combat") return state.combat.some((x) => x.d === wd[d].ds);
   return false;
@@ -2756,8 +2732,6 @@ $app.addEventListener("click", (e) => {
   if (e.target.closest("[data-sendshare]")) { sendShare(); return; }
   const ibx = e.target.closest("[data-inbox]");
   if (ibx) { openInbox(Number(ibx.dataset.inbox)); return; }
-  const sgo = e.target.closest("[data-sharego]");
-  if (sgo) { shareGo(sgo.dataset.sharego); return; }
   if (e.target.closest("[data-createprog]")) { createProgram(); return; }
   const dpg = e.target.closest("[data-delprog]");
   if (dpg) {
@@ -2958,11 +2932,28 @@ $app.addEventListener("change", (e) => {
   const cb = e.target.closest("[data-done]");
   if (!cb) return;
   const key = cb.dataset.done;
-  if (cb.checked) state.done[key] = true; else delete state.done[key];
-  save();
   const wrow = cb.closest(".row");
   const wbox = wrow ? wrow.querySelector("[data-weight]") : null;
-  if (cb.checked && wbox && wbox.value) recordWeight(wbox.dataset.weight, wbox.dataset.wname, wbox.value);
+  if (!cb.checked) {
+    delete state.done[key];
+    const ds = entryDate();
+    const slg0 = wbox ? wbox.dataset.weight : "";
+    const nm0 = wbox ? wbox.dataset.wname : "";
+    const removed = wbox && dayDate(selected) === ds ? removeEntry(slg0, ds) : null;
+    save();
+    if (removed) {
+      showToast("Removed " + nm0 + " from " + fmtDate(ds) + " in History.", () => {
+        restoreEntry(slg0, nm0, removed);
+        state.done[key] = true;
+        save(); render();
+      });
+    }
+    render();
+    return;
+  }
+  state.done[key] = true;
+  save();
+  if (wbox && wbox.value) recordWeight(wbox.dataset.weight, wbox.dataset.wname, wbox.value);
   cb.closest(".row").classList.toggle("done", cb.checked);
   const sid = getSid(selected);
   const c = counts(sid);
@@ -3038,8 +3029,8 @@ function normalizeState(b) {
   if (!b.custom || typeof b.custom !== "object") b.custom = {};
   if (!b.custom.sessions || typeof b.custom.sessions !== "object") b.custom.sessions = {};
   if (!b.custom.week || typeof b.custom.week !== "object") b.custom.week = {};
-  const wk = weekKey() + "|";
-  Object.keys(b.done).forEach((k) => { if (!k.startsWith(wk)) delete b.done[k]; });
+  migrateDone(b);
+  pruneDone(b);
   migrateLegacy(b);
   return b;
 }
@@ -3261,8 +3252,6 @@ document.addEventListener("visibilitychange", async () => {
 });
 
 async function boot() {
-  readIncomingFromUrl();
-  await loadIncoming();
   if (!sb) { render(); return; }
   try {
     const r = await sb.auth.getSession();
