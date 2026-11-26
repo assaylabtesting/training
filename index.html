@@ -2500,8 +2500,10 @@ function createProgram() {
     return;
   }
   const id = newId();
+  const tickMap = from !== "blank" && PROGRAMS[from] ? sidMap(from, "c:" + id, week) : null;
   state.customPrograms.push({ id, name, blurb: "Your own program.", week, sessions, runWith });
   registerCustom(state.customPrograms);
+  if (tickMap) copyTicks(tickMap);
   state.program = "c:" + id;
   selected = startDay(state.program);
   tab = "program"; editing = true; customIdx = -1; pview = "";
@@ -2548,6 +2550,40 @@ function deleteProgram(pid) {
 /* ---------- AI program editor ---------- */
 let aiEdit = null;
 const AI_EDIT_CHIPS = ["Fix a stuck lift", "More upper chest", "Lighter legs before long runs", "Swap an exercise I dislike"];
+
+// Ticks are saved per session id. A copied program has new session ids, so this week's ticks must be carried over.
+function sidMap(fromPid, toPid, toWeek) {
+  const ewFrom = effectiveWeek(fromPid), map = {};
+  DAY_KEYS.forEach((d) => { if (toWeek[d] && ewFrom[d]) map[ewFrom[d]] = toPid + ":" + toWeek[d]; });
+  return map;
+}
+function copyTicks(map) {
+  Object.keys(state.done).forEach((k) => {
+    const i = k.indexOf("|"), j = k.indexOf("|", i + 1);
+    if (i < 0 || j < 0) return;
+    const sid = k.slice(i + 1, j);
+    if (map[sid]) {
+      const nk = k.slice(0, i + 1) + map[sid] + k.slice(j);
+      if (!state.done[nk]) state.done[nk] = true;
+    }
+  });
+}
+// One time only: AI copies made before this fix lost this week's ticks. Bring them back from the original program.
+function repairAiTicks() {
+  let changed = false;
+  (state.customPrograms || []).forEach((cp) => {
+    if (!cp || cp.blurb !== "Edited with AI." || cp.ticksFixed) return;
+    let orig = cp.aiFrom && PROGRAMS[cp.aiFrom] ? cp.aiFrom : null;
+    if (!orig) {
+      const base = String(cp.name || "").replace(/ \(AI\)$/, "");
+      orig = Object.keys(PROGRAMS).find((id) => id.indexOf("c:") !== 0 && (PROGRAMS[id].name === base || PROGRAMS[id].name.slice(0, 35) === base));
+    }
+    if (orig && cp.week) copyTicks(sidMap(orig, "c:" + cp.id, cp.week));
+    cp.ticksFixed = true;
+    changed = true;
+  });
+  if (changed) save();
+}
 
 function aiNormPlan(p) {
   let t = String(p == null ? "" : p).replace(/\s+/g, " ").trim().slice(0, 30);
@@ -2710,9 +2746,11 @@ function aiApply() {
     const prev = state.program;
     const c0 = copyProgram(prev);
     const id = newId();
-    state.customPrograms.push({ id, name: PROGRAMS[prev].name.slice(0, 35) + " (AI)", blurb: "Edited with AI.", week: c0.week, sessions: c0.sessions, runWith: c0.runWith });
+    const tickMap = sidMap(prev, "c:" + id, c0.week);
+    state.customPrograms.push({ id, name: PROGRAMS[prev].name.slice(0, 35) + " (AI)", blurb: "Edited with AI.", week: c0.week, sessions: c0.sessions, runWith: c0.runWith, aiFrom: prev, ticksFixed: true });
     registerCustom(state.customPrograms);
     state.program = "c:" + id;
+    copyTicks(tickMap);
     undo = { kind: "copy", pid: "c:" + id, prev };
   }
   const ew = effectiveWeek(state.program);
@@ -2728,7 +2766,7 @@ function aiApply() {
   });
   a.status = "done"; a.undo = undo; a.changes = [];
   a.msg = undo.kind === "copy"
-    ? "Done. Saved as a new program: " + PROGRAMS[state.program].name + ". The original is unchanged."
+    ? "Done. Saved as a new program: " + PROGRAMS[state.program].name + ". The original is unchanged, and this week's ticks came with it."
     : "Done. " + picks.length + " change" + (picks.length === 1 ? "" : "s") + " applied.";
   save(); render(); window.scrollTo(0, 0);
 }
@@ -2743,6 +2781,7 @@ function aiUndo() {
     state.customPrograms = state.customPrograms.filter((x) => "c:" + x.id !== u.pid);
     Object.keys(state.custom.sessions).forEach((k) => { if (k.indexOf(u.pid + ":") === 0) delete state.custom.sessions[k]; });
     delete state.custom.week[u.pid];
+    Object.keys(state.done).forEach((k) => { if (k.slice(11).indexOf(u.pid + ":") === 0) delete state.done[k]; });
     registerCustom(state.customPrograms);
     state.program = PROGRAMS[u.prev] ? u.prev : "fb3";
   }
@@ -3182,6 +3221,7 @@ function dayDone(d, wd) {
 }
 
 function render() {
+  repairAiTicks();
   syncGoal();
   syncCombat();
   if (!pview && incomingData) pview = "import";
