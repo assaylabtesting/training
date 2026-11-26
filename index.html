@@ -325,10 +325,12 @@ details[open]>summary::after{content:"\2212"}
 .dmeta button{background:none;border:0;color:var(--muted);text-decoration:underline;min-height:36px;font-size:12px;padding:0}
 .runlog + .list{border-top:1px solid var(--line)}
 
-/* iPhone date fields: keep them the same width as the other boxes, left aligned */
-input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:44px;margin:0;text-align:left;line-height:normal}
-input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
-input[type="date"]::-webkit-datetime-edit{padding:0}
+/* Date fields: the app draws the text box itself so it lines up on iPhone, and the real date picker sits invisibly on top */
+.dwrap{position:relative;display:block;width:100%;min-width:0}
+.dview{display:flex;align-items:center;box-sizing:border-box;width:100%;min-height:44px;padding:0 10px;font-size:16px;line-height:1.2;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;color:var(--ink);overflow:hidden;white-space:nowrap}
+.dview.empty{color:var(--muted)}
+.dwrap input[type="date"]{position:absolute;left:0;top:0;width:100%;height:100%;min-height:0;margin:0;padding:0;border:0;opacity:0;font-size:16px;z-index:1;-webkit-appearance:none;appearance:none;background:transparent}
+.dwrap:focus-within .dview{outline:3px solid var(--ink);outline-offset:2px}
 .ctl2,.rf,.rf label,.rf .fg,.ctl,.fg2{grid-template-columns:minmax(0,1fr)}
 .r2{grid-template-columns:repeat(3,minmax(0,1fr))}
 .r3,.dstats.two,.inl2,.inl3{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -428,9 +430,8 @@ const SESSIONS = {
       { n: "Romanian deadlift", s: "3 x 6-8" },
       { n: "Neutral-grip pulldown", s: "3 x 10-12" },
       { n: "One-arm row", s: "2 x 10-12" },
-      { n: "Lying leg curl", s: "3 x 10-12" },
-      { n: "Hip adductor machine", s: "2 x 12" },
-      { n: "Seated calf raise", s: "3 x 12-15" }
+      { n: "Seated leg curl", s: "3 x 10-12" },
+      { n: "Hip adductor machine", s: "2 x 12" }
     ]
   },
   antB: {
@@ -441,7 +442,6 @@ const SESSIONS = {
       { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
       { n: "Leg press", alt: "Bulgarian split squat (per leg)", s: "3 x 8-10" },
       { n: "Cable lateral raise", s: "2 x 15" },
-      { n: "Standing calf raise", s: "3 x 12-15" },
       { n: "Cable crunch", alt: "Pallof press", s: "2 x 10-12" }
     ]
   },
@@ -455,7 +455,7 @@ const SESSIONS = {
       { n: "Hack squat", alt: "Squat", s: "3 x 6-8" },
       { n: "Romanian deadlift", s: "2 x 8" },
       { n: "Lateral raise", s: "2 x 15" },
-      { n: "Standing calf raise", s: "3 x 8-12" }
+      { n: "Standing calf raise", s: "2 x 8-12" }
     ]
   },
   fbB: {
@@ -463,11 +463,12 @@ const SESSIONS = {
     note: "Day after combat. Light legs.", cn: true,
     items: [
       { n: "Low-incline DB press", s: "3 x 8-10", chest: true },
+      { n: "Cable lateral raise", s: "2 x 15" },
       { n: "Chest-supported row", s: "3 x 8-10" },
       { n: "Leg press", s: "2 x 10-12" },
       { n: "Seated leg curl", s: "3 x 10-12" },
       { n: "Hip thrust", s: "2 x 8-10" },
-      { n: "Seated calf raise", s: "3 x 12" }
+      { n: "Seated calf raise", s: "2 x 12" }
     ]
   },
   fbC: {
@@ -476,10 +477,11 @@ const SESSIONS = {
     items: [
       { n: "Smith incline press", alt: "Incline machine press", s: "3 x 8-10", chest: true },
       { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true },
+      { n: "Rear delt fly", s: "2 x 15" },
       { n: "Neutral-grip pulldown", s: "2 x 10-12" },
       { n: "Bulgarian split squat (per leg)", s: "2 x 8-10" },
-      { n: "Back extension", alt: "Lying leg curl", s: "2 x 10-12" },
-      { n: "Standing calf raise", s: "3 x 12-15" }
+      { n: "Seated leg curl", alt: "Glute bridge", s: "2 x 10-12" },
+      { n: "Standing calf raise", s: "2 x 12-15" }
     ]
   },
 
@@ -491,8 +493,7 @@ const SESSIONS = {
       { n: "Weighted pull-up", alt: "Lat pulldown", s: "3 x 8-10" },
       { n: "Low-incline DB press", s: "2 x 8-10", chest: true },
       { n: "Chest-supported row", s: "2 x 8-10" },
-      { n: "Lateral raise", s: "2 x 15" },
-      { n: "Rear delt fly", s: "2 x 15" }
+      { n: "Lateral raise", s: "2 x 15" }
     ]
   },
   lowerA: {
@@ -525,7 +526,7 @@ const SESSIONS = {
     items: [
       { n: "Leg press", alt: "Bulgarian split squat (per leg)", s: "3 x 8-10" },
       { n: "Hip thrust", s: "3 x 8-10" },
-      { n: "Lying leg curl", s: "3 x 10-12" },
+      { n: "Seated leg curl", s: "3 x 10-12" },
       { n: "Hip adductor machine", s: "2 x 12" },
       { n: "Seated calf raise", s: "3 x 12-15" }
     ]
@@ -827,6 +828,190 @@ PROGRAMS.arn6 = { name: "Arnold split, 6 days", blurb: "Chest and back, shoulder
 PROGRAMS.ul6 = { name: "Upper / Lower, 6 days", blurb: "Alternating upper and lower days, six days a week.", week: { mon: "upperA", tue: "lowerA", wed: "upperB", thu: "lowerB", fri: "upperA", sat: "lowerA" } };
 PROGRAMS.home6 = { name: "At home, 6 days", blurb: "Four home lifts and two cardio sessions.", week: { mon: "homeA", tue: "cardioEasy", wed: "homeB", thu: "cardioInt", fri: "homeA", sat: "homeB" } };
 
+/* ---------- Normal-person versions and glute focus programs ----------
+   The combat programs keep their tuned sessions (no direct arm work, trimmed calves and shoulders).
+   Everyone else gets sessions built from the research on weekly volume and frequency:
+   about 10 or more hard sets per muscle per week, each major muscle at least twice a week,
+   and direct biceps and triceps work on top of what presses and rows already give them. */
+function mkSession(id, base, title, note, items) {
+  const b = SESSIONS[base] || {};
+  SESSIONS[id] = { title: title || b.title, kind: "gym", note: note === null ? (b.note || "") : note, items };
+}
+const I = (n, s, extra) => Object.assign({ n, s }, extra || {});
+// Full body, 3 and 2 days
+mkSession("fbAN", "fbA", "Full body A", "Heavy squat and incline press day.", [
+  I("Incline press (30\u00b0)", "3 x 6-8", { chest: true }), I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }),
+  I("Hack squat", "3 x 6-8", { alt: "Squat" }), I("Romanian deadlift", "2 x 8"), I("Lateral raise", "2 x 15"),
+  I("Triceps pushdown", "3 x 10-12"), I("Standing calf raise", "3 x 8-12")]);
+mkSession("fbBN", "fbB", "Full body B", "Chest, back and hamstring day. Moderate legs.", [
+  I("Low-incline DB press", "3 x 8-10", { chest: true }), I("Cable lateral raise", "2 x 15"), I("Chest-supported row", "3 x 8-10"),
+  I("Leg press", "2 x 10-12"), I("Seated leg curl", "3 x 10-12"), I("Hip thrust", "2 x 8-10"),
+  I("Biceps curl", "3 x 10-12"), I("Seated calf raise", "3 x 12")]);
+mkSession("fbCN", "fbC", "Full body C", "Upper body volume plus arms. Moderate legs.", [
+  I("Smith incline press", "3 x 8-10", { alt: "Incline machine press", chest: true }), I("Low-to-high cable fly", "2 x 12-15", { chest: true }),
+  I("Rear delt fly", "2 x 15"), I("Neutral-grip pulldown", "2 x 10-12"), I("Bulgarian split squat (per leg)", "2 x 8-10"),
+  I("Back extension", "2 x 10-12", { alt: "Lying leg curl" }), I("Overhead triceps extension", "3 x 10-12"),
+  I("Hammer curl", "3 x 10-12"), I("Standing calf raise", "3 x 12-15")]);
+// Upper / Lower
+mkSession("upperAN", "upperA", "Upper A", null, [
+  I("Incline press (30\u00b0)", "3 x 6-8", { chest: true }), I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }),
+  I("Low-incline DB press", "2 x 8-10", { chest: true }), I("Chest-supported row", "2 x 8-10"), I("Lateral raise", "2 x 15"),
+  I("Rear delt fly", "2 x 15"), I("Triceps pushdown", "3 x 10-12"), I("Biceps curl", "3 x 10-12")]);
+mkSession("upperBN", "upperB", "Upper B", null, [
+  I("Smith incline press", "3 x 8-10", { alt: "Incline machine press", chest: true }), I("Neutral-grip pulldown", "3 x 10-12"),
+  I("Low-to-high cable fly", "2 x 12-15", { chest: true }), I("One-arm row", "2 x 10-12"), I("Cable lateral raise", "2 x 15"),
+  I("Face pull", "2 x 15"), I("Overhead triceps extension", "3 x 10-12"), I("Hammer curl", "3 x 10-12")]);
+mkSession("lowerBN", "lowerB", "Lower B", "Moderate legs. Volume day.", [
+  I("Leg press", "3 x 8-10", { alt: "Bulgarian split squat (per leg)" }), I("Hip thrust", "3 x 8-10"), I("Lying leg curl", "3 x 10-12"),
+  I("Hip adductor machine", "2 x 12"), I("Seated calf raise", "3 x 12-15")]);
+// Anterior / Posterior
+mkSession("antAN", "antA", "Anterior A", null, [
+  I("Incline press (30\u00b0)", "3 x 6-8", { chest: true }), I("Low-incline DB press", "2 x 8-10", { chest: true }), I("Hack squat", "3 x 6-8"),
+  I("Leg extension", "2 x 12-15"), I("Lateral raise", "2 x 15"), I("Triceps pushdown", "3 x 10-12"), I("Standing calf raise", "3 x 8-12")]);
+mkSession("antBN", "antB", "Anterior B", "Moderate legs. Volume day.", [
+  I("Low-incline DB press", "3 x 8-10", { chest: true }), I("Low-to-high cable fly", "2 x 12-15", { chest: true }),
+  I("Leg press", "3 x 8-10", { alt: "Bulgarian split squat (per leg)" }), I("Cable lateral raise", "2 x 15"),
+  I("Overhead triceps extension", "3 x 10-12"), I("Standing calf raise", "3 x 12-15"), I("Cable crunch", "2 x 10-12", { alt: "Pallof press" })]);
+mkSession("postAN", "postA", "Posterior A", null, [
+  I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }), I("Hip thrust", "3 x 8-10"), I("Chest-supported row", "2 x 8-10"),
+  I("Seated leg curl", "2 x 10-12"), I("Rear delt fly", "2 x 15"), I("Biceps curl", "3 x 10-12"), I("Seated calf raise", "3 x 12")]);
+mkSession("postBN", "postB", "Posterior B", null, [
+  I("Romanian deadlift", "3 x 6-8"), I("Neutral-grip pulldown", "3 x 10-12"), I("One-arm row", "2 x 10-12"),
+  I("Lying leg curl", "3 x 10-12"), I("Hip adductor machine", "2 x 12"), I("Hammer curl", "3 x 10-12"), I("Seated calf raise", "3 x 12-15")]);
+// Push / pull / legs
+mkSession("pushN", "push", "Push", "Chest first, then shoulders and triceps.", [
+  I("Incline press (30\u00b0)", "3 x 6-8", { chest: true }), I("Low-incline DB press", "3 x 8-10", { chest: true }),
+  I("Low-to-high cable fly", "2 x 12-15", { chest: true }), I("Lateral raise", "3 x 15"), I("Cable lateral raise", "2 x 15"),
+  I("Triceps pushdown", "3 x 10-12"), I("Overhead triceps extension", "3 x 10-12")]);
+mkSession("pullN", "pull", "Pull", "Back first, then rear delts and biceps.", [
+  I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }), I("Chest-supported row", "3 x 8-10"), I("Neutral-grip pulldown", "2 x 10-12"),
+  I("One-arm row", "2 x 10-12"), I("Rear delt fly", "2 x 15"), I("Biceps curl", "3 x 10-12"), I("Hammer curl", "3 x 10-12")]);
+mkSession("lowerPN", "lowerP", "Lower", "Moderate legs. Volume day.", [
+  I("Leg press", "3 x 8-10", { alt: "Bulgarian split squat (per leg)" }), I("Hip thrust", "3 x 8-10"), I("Lying leg curl", "3 x 10-12"),
+  I("Hip adductor machine", "2 x 12"), I("Seated calf raise", "3 x 12-15")]);
+// Bro split, 4 days
+mkSession("chestG", "chest", "Chest", "Upper chest focus. Incline first. Triceps to finish.", [
+  I("Incline press (30\u00b0)", "4 x 6-8", { chest: true }), I("Low-incline DB press", "3 x 8-10", { chest: true }),
+  I("Incline machine press", "2 x 10-12", { chest: true }), I("Low-to-high cable fly", "3 x 12-15", { chest: true }),
+  I("Triceps pushdown", "3 x 10-12"), I("Overhead triceps extension", "3 x 10-12")]);
+mkSession("backG", "back", "Back", "Pull day. Biceps to finish.", [
+  I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }), I("Chest-supported row", "3 x 8-10"), I("Neutral-grip pulldown", "2 x 10-12"),
+  I("One-arm row", "2 x 10-12"), I("Rear delt fly", "2 x 15"), I("Biceps curl", "3 x 10-12"), I("Hammer curl", "3 x 10-12")]);
+
+// Point the non-combat programs at the normal versions
+function useSessions(pid, map) {
+  Object.keys(PROGRAMS[pid].week).forEach((d) => { const v = PROGRAMS[pid].week[d]; if (map[v]) PROGRAMS[pid].week[d] = map[v]; });
+}
+const FB_N = { fbA: "fbAN", fbB: "fbBN", fbC: "fbCN" };
+const UL_N = { upperA: "upperAN", upperB: "upperBN", lowerB: "lowerBN" };
+const AP_N = { antA: "antAN", antB: "antBN", postA: "postAN", postB: "postBN" };
+const PPL_N = { push: "pushN", pull: "pullN" };
+useSessions("fb3", FB_N); useSessions("fb2", FB_N); useSessions("ulfb5", Object.assign({}, UL_N, { fbC: "fbCN" })); useSessions("str5", { fbC: "fbCN" });
+useSessions("ulg4", UL_N); useSessions("ul2", UL_N); useSessions("ul6", UL_N);
+useSessions("apg4", AP_N);
+useSessions("pplg3", PPL_N); useSessions("pplg6", PPL_N); useSessions("pplul5g", Object.assign({}, PPL_N, { lowerP: "lowerPN" }));
+useSessions("bro4g", { chest: "chestG", back: "backG" });
+// Strength, beginner and home sessions only exist in non-combat programs: add modest arm work in place
+SESSIONS.strBench.items.push(I("Triceps pushdown", "3 x 10-12"));
+SESSIONS.strPress.items.push(I("Biceps curl", "3 x 10-12"));
+SESSIONS.strDead.items.push(I("Hammer curl", "3 x 10-12"));
+SESSIONS.begA.items.push(I("Biceps curl", "2 x 10-12"));
+SESSIONS.begB.items.push(I("Triceps pushdown", "2 x 10-12"));
+SESSIONS.homeA.items.push(I("Overhead triceps extension", "3 x 10-12"));
+SESSIONS.homeB.items.push(I("Biceps curl", "3 x 10-12"));
+
+// Glute focus. Hip thrust and squat build similar glute size, so both are used; every lower day trains glutes,
+// and glutes are hit at least twice a week with roughly 15 to 25 weekly sets.
+mkSession("gLowA", null, "Glutes A", "Heavy day. Hip thrust first while you are fresh. Stop each set with 1 to 3 reps in reserve.", [
+  I("Hip thrust", "4 x 6-8"), I("Bulgarian split squat (per leg)", "3 x 8-10", { alt: "Walking lunge" }), I("Romanian deadlift", "3 x 8-10"),
+  I("Hip abduction machine", "3 x 12-15"), I("Standing calf raise", "2 x 10-12"), I("Cable crunch", "2 x 10-12", { alt: "Pallof press" })]);
+mkSession("gLowB", null, "Glutes B", "Volume day. Control the lowering and get a deep stretch on the lunges.", [
+  I("Squat", "3 x 8-10", { alt: "Leg press" }), I("Hip thrust", "3 x 10-12"), I("Walking lunge", "3 x 10-12 (per leg)"),
+  I("Seated leg curl", "3 x 10-12"), I("Cable glute kickback", "3 x 12-15 (per leg)"), I("Seated calf raise", "2 x 12-15")]);
+mkSession("gLowC", null, "Glutes C", "Hinge and pump day. Lighter weights, strong squeeze at the top.", [
+  I("Romanian deadlift", "3 x 8-10"), I("Step-up", "3 x 10-12 (per leg)"), I("Hip abduction machine", "3 x 15-20"),
+  I("Back extension", "3 x 10-12", { alt: "Glute bridge" }), I("Seated leg curl", "2 x 12-15"), I("Standing calf raise", "2 x 12-15")]);
+mkSession("gUpA", null, "Upper A", "Press and pull. Keep the arms short and sharp.", [
+  I("Incline press (30\u00b0)", "3 x 8-10", { chest: true }), I("Lat pulldown", "3 x 8-12", { alt: "Neutral-grip pulldown" }),
+  I("Low-incline DB press", "2 x 8-12", { chest: true }), I("Dumbbell shoulder press", "2 x 8-12"), I("Seated cable row", "3 x 8-12"), I("Lateral raise", "2 x 12-15"),
+  I("Triceps pushdown", "2 x 10-12"), I("Biceps curl", "2 x 10-12")]);
+mkSession("gUpB", null, "Upper B", "Back and shoulders, then a short glute finisher.", [
+  I("Low-incline DB press", "3 x 8-12", { chest: true }), I("Neutral-grip pulldown", "3 x 8-12", { alt: "Lat pulldown" }),
+  I("One-arm row", "2 x 10-12"), I("Cable lateral raise", "3 x 12-15"), I("Face pull", "2 x 15"),
+  I("Overhead triceps extension", "2 x 10-12"), I("Hammer curl", "2 x 10-12"), I("Hip abduction machine", "2 x 15-20")]);
+PROGRAMS.glute3 = { name: "Glute focus, 3 days", blurb: "Two glute days and one upper day. Hip thrust, squats, hinges and abduction, with enough upper body to stay balanced.", week: { mon: "gLowA", wed: "gUpA", fri: "gLowB" } };
+PROGRAMS.glute4 = { name: "Glute focus, 4 days", blurb: "Two glute days and two upper days. Glutes are trained twice a week with plenty of volume.", week: { mon: "gLowA", tue: "gUpA", thu: "gLowB", fri: "gUpB" } };
+PROGRAMS.glute5 = { name: "Glute focus, 5 days", blurb: "Three glute days and two upper days. Heavy, volume and pump days for the most glute work.", week: { mon: "gLowA", tue: "gUpA", wed: "gLowC", fri: "gUpB", sat: "gLowB" } };
+
+// ---------- Program doctor ----------
+// Fixes found by auditing every program: no three near-identical presses in one session, one side-delt and one rear-delt
+// exercise per day, once-a-week leg days carry a full week of volume, and 2-day full body covers every muscle twice.
+function editItems(sid, fn) { SESSIONS[sid].items = fn(SESSIONS[sid].items.slice()); }
+const dropItem = (arr, n) => arr.filter((i) => i.n !== n);
+const setItem = (arr, n, patch) => arr.map((i) => (i.n === n ? Object.assign({}, i, patch) : i));
+["antA", "upperA", "antAN", "upperAN", "gUpA"].forEach((sid) => editItems(sid, (a) =>
+  a.map((i) => (i.n === "Low-incline DB press" ? { n: "Low-to-high cable fly", s: "2 x 12-15", chest: true } : i))));
+["chest", "chestG"].forEach((sid) => editItems(sid, (a) => dropItem(a, "Incline machine press")));
+SESSIONS.shoulders.items = [
+  I("Dumbbell shoulder press", "3 x 8-10"), I("Lateral raise", "4 x 12-15"), I("Rear delt fly", "3 x 15"),
+  I("Cable crunch", "3 x 10-12", { alt: "Pallof press" }), I("Cable woodchop", "2 x 10 per side")];
+["push", "pushN"].forEach((sid) => editItems(sid, (a) => setItem(dropItem(a, "Cable lateral raise"), "Lateral raise", { s: "4 x 12-15" })));
+editItems("shoulderArms", (a) => setItem(a, "Lateral raise", { s: "3 x 15" }));
+editItems("fbAN", (a) => setItem(a, "Weighted pull-up", { s: "4 x 8-10" }));
+editItems("fbCN", (a) => setItem(setItem(a, "Neutral-grip pulldown", { s: "3 x 10-12" }), "Standing calf raise", { s: "2 x 12-15" }));
+// Once-a-week leg days (normal programs only): about 10 quad sets and 6 hamstring sets, one squat pattern
+mkSession("legsH", "legs", "Legs", "Heavy leg day. Squat first. This is the only leg day, so make the sets count.", [
+  I("Hack squat", "4 x 6-8", { alt: "Squat" }), I("Bulgarian split squat (per leg)", "3 x 8-10"), I("Leg extension", "3 x 12-15"),
+  I("Romanian deadlift", "3 x 6-8"), I("Seated leg curl", "3 x 10-12"), I("Standing calf raise", "3 x 8-12"), I("Seated calf raise", "3 x 12")]);
+useSessions("pplg3", { legs: "legsH" }); useSessions("bro4g", { legs: "legsH" }); useSessions("bro5", { legs: "legsH" });
+// Full body, 2 days: every muscle twice, hamstrings and back included
+mkSession("fb2A", "fbA", "Full body A", "Heavy day. Two full body days cover every muscle twice a week.", [
+  I("Incline press (30\u00b0)", "3 x 6-8", { chest: true }), I("Weighted pull-up", "3 x 8-10", { alt: "Lat pulldown" }),
+  I("Hack squat", "3 x 6-8", { alt: "Squat" }), I("Romanian deadlift", "3 x 8-10"), I("Lateral raise", "3 x 12-15"),
+  I("Triceps pushdown", "2 x 10-12"), I("Standing calf raise", "2 x 10-12")]);
+mkSession("fb2B", "fbC", "Full body B", "Volume day. Keep reps clean and stop a rep or two short of failure.", [
+  I("Low-incline DB press", "3 x 8-10", { chest: true }), I("Chest-supported row", "3 x 8-10"), I("Bulgarian split squat (per leg)", "3 x 8-10"),
+  I("Hip thrust", "3 x 8-10"), I("Seated leg curl", "3 x 10-12"), I("Cable lateral raise", "2 x 15"),
+  I("Biceps curl", "2 x 10-12"), I("Seated calf raise", "2 x 12")]);
+useSessions("fb2", { fbAN: "fb2A", fbCN: "fb2B" });
+// ---------- Fixes from the second audit ----------
+// Calves belong on the posterior days, not the anterior ones. Your combat version keeps 6 calf sets a week (Tue and Fri).
+["antA", "antAN", "antBN"].forEach((sid) => editItems(sid, (a) => dropItem(a, "Standing calf raise")));
+editItems("postB", (a) => a.concat([I("Standing calf raise", "3 x 8-12")]));
+editItems("postAN", (a) => setItem(a, "Seated calf raise", { s: "4 x 12" }));
+editItems("postBN", (a) => a.map((i) => (i.n === "Seated calf raise" ? I("Standing calf raise", "4 x 8-12") : i)));
+SESSIONS.postAN.note = "Back first, then glutes and hamstrings. Controlled reps.";
+// The Saturday lower day before the long run really is moderate now: 7 leg sets, not 9
+["lowerB", "lowerP"].forEach((sid) => editItems(sid, (a) => setItem(setItem(a, "Hip thrust", { s: "2 x 8-10" }), "Seated leg curl", { s: "2 x 10-12" })));
+// Notes that talk about combat or the long run only belong on the combat programs, so the others get their own copies
+mkSession("backN", "back", "Back", "Pull day. Vertical and horizontal pulling.", SESSIONS.back.items.slice());
+mkSession("shouldersN", "shoulders", "Shoulders and core", "Press first, then side and rear delts, then core.", SESSIONS.shoulders.items.slice());
+mkSession("legsN", "legs", "Legs", "Heavy leg day. Squat first, then hamstrings and calves.", SESSIONS.legs.items.slice());
+useSessions("bro5", { back: "backN", shoulders: "shouldersN" }); useSessions("bro4g", { shoulders: "shouldersN" });
+useSessions("arn6", { legs: "legsN" }); useSessions("pplg6", { legs: "legsN" }); useSessions("pplul5g", { legs: "legsN" });
+// Two runs a week add up to about 12k, not 15k
+["split4", "ul4", "bro4"].forEach((id) => { PROGRAMS[id].blurb = PROGRAMS[id].blurb.replace("about 15k", "about 12k"); });
+SESSIONS.gUpB.title = "Upper B + glutes";
+
+// Programs that train each muscle once a week say so, and rank below twice-a-week programs
+["bro4", "bro5", "bro4g", "ppl3", "pplg3", "ul2"].forEach((id) => { PROGRAMS[id].blurb += " Each muscle is trained once a week, so a twice-a-week split usually works better."; });
+
+// Home glute focus (dumbbells and bodyweight)
+mkSession("hLowA", null, "Home glutes A", "Heavy day. Use the heaviest dumbbells you have and slow, controlled reps.", [
+  I("Dumbbell hip thrust", "4 x 8-12"), I("Bulgarian split squat (per leg)", "3 x 8-12"), I("Dumbbell Romanian deadlift", "3 x 8-12"),
+  I("Side-lying leg raise", "3 x 15-20"), I("Standing calf raise", "2 x 15-20"), I("Plank", "2 x 30-45 sec")]);
+mkSession("hLowB", null, "Home glutes B", "Volume day. One leg at a time, with a pause and squeeze at the top.", [
+  I("Goblet squat", "3 x 10-15"), I("Single-leg glute bridge", "3 x 12-15 (per leg)"), I("Single-leg Romanian deadlift", "3 x 8-12 (per leg)"),
+  I("Step-up", "3 x 10-12 (per leg)"), I("Side-lying leg raise", "2 x 15-20"), I("Standing calf raise", "2 x 15-20")]);
+mkSession("hUpA", null, "Home upper A", "Push and pull with dumbbells. Make the last reps of each set hard.", [
+  I("Push-up", "4 x 8-15", { alt: "Dumbbell bench press" }), I("Dumbbell row", "4 x 10-12"), I("Dumbbell shoulder press", "2 x 8-12"),
+  I("Lateral raise", "2 x 12-15"), I("Overhead triceps extension", "2 x 10-12"), I("Biceps curl", "2 x 10-12")]);
+mkSession("hUpB", null, "Home upper B + glutes", "Chest and back, then a short glute finisher.", [
+  I("Dumbbell bench press", "3 x 8-12", { alt: "Push-up" }), I("One-arm row", "3 x 10-12"), I("Rear delt fly", "2 x 15"),
+  I("Hammer curl", "2 x 10-12"), I("Overhead triceps extension", "2 x 10-12"), I("Side-lying leg raise", "2 x 15-20")]);
+PROGRAMS.hglute3 = { name: "Home glute focus, 3 days", blurb: "Dumbbells and bodyweight. Two glute days and one upper day, with hip thrusts, single-leg work and hinges.", week: { mon: "hLowA", wed: "hUpA", fri: "hLowB" } };
+PROGRAMS.hglute4 = { name: "Home glute focus, 4 days", blurb: "Dumbbells and bodyweight. Two glute days and two upper days. Glutes are trained twice a week.", week: { mon: "hLowA", tue: "hUpA", thu: "hLowB", fri: "hUpB" } };
+
 const PROGRAM_META = {
   beg3: { family: "Build muscle", days: 3, levels: ["new"], goals: ["muscle", "fat", "health", "strength"], equip: "gym" },
   fb3: { family: "Build muscle", days: 3, levels: ["some", "experienced"], goals: ["muscle", "strength", "health"], equip: "gym" },
@@ -866,6 +1051,13 @@ const PROGRAM_META = {
   ppl3: { family: COMBAT_FAMILY, combat: true, days: 3, levels: ["some", "experienced"], goals: ["muscle", "sport"], equip: "gym" },
   pplul5: { family: COMBAT_FAMILY, combat: true, days: 5, levels: ["experienced"], goals: ["muscle", "sport"], equip: "gym" }
 };
+
+PROGRAM_META.hglute3 = { family: "Glute focus", days: 3, levels: ["new", "some", "experienced"], goals: ["muscle", "fat", "health", "glute"], equip: "home", glute: true };
+PROGRAM_META.hglute4 = { family: "Glute focus", days: 4, levels: ["some", "experienced"], goals: ["muscle", "fat", "glute"], equip: "home", glute: true };
+["bro4", "bro5", "bro4g", "ppl3", "pplg3", "ul2"].forEach((id) => { PROGRAM_META[id].lowFreq = true; });
+PROGRAM_META.glute3 = { family: "Glute focus", days: 3, levels: ["new", "some", "experienced"], goals: ["muscle", "fat", "health", "glute"], equip: "gym", glute: true };
+PROGRAM_META.glute4 = { family: "Glute focus", days: 4, levels: ["some", "experienced"], goals: ["muscle", "fat", "glute"], equip: "gym", glute: true };
+PROGRAM_META.glute5 = { family: "Glute focus", days: 5, levels: ["experienced"], goals: ["muscle", "glute"], equip: "gym", glute: true };
 
 Object.keys(PROGRAMS).forEach((id) => {
   ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].forEach((d) => {
@@ -1179,7 +1371,7 @@ function runLog(label) {
     `<div class="meter"><i style="width:${pct.toFixed(0)}%"></i></div>` +
     (todayRuns.length ? `<div class="wkrow mt12"><b>Logged for ${FULL[selected]}</b></div>${todayRuns.map(runDoneCard).join("")}` : "") +
     `<h4>${todayRuns.length ? "Log another run" : "Log a run"}${label ? " (" + esc(label) + " after lifting)" : ""}</h4><div class="rf">` +
-    `<label>Date<input id="rDate" type="date" value="${entryDate()}"></label>` +
+    `<label>Date${dateField("rDate", entryDate())}</label>` +
     `<label>Run type (optional)<select id="rType"><option value="">Not sure</option><option value="easy">Easy run</option><option value="long">Long run</option><option value="tempo">Tempo or hard</option><option value="race">Race</option></select></label>` +
     `<label>Total distance (km)<input id="rKm" data-rf="km" type="text" inputmode="decimal" placeholder="km" autocomplete="off"></label>` +
     `<div class="fg"><span>Total time</span><div class="r2">` +
@@ -1452,7 +1644,7 @@ function addEntryCard() {
   const open = !!pastMsg;
   const html = `<details class="hcard addent"${open ? " open" : ""}><summary>Add a past entry</summary>` +
     `<div class="ctl2"><label for="paEx">Exercise</label><select id="paEx">${exOptions("", true)}</select></div>` +
-    `<div class="ctl2"><label for="paDate">Date</label><input id="paDate" type="date" value="${ymd(new Date())}" max="${ymd(new Date())}"></div>` +
+    `<div class="ctl2"><label for="paDate">Date</label>${dateField("paDate", ymd(new Date()), `max="${ymd(new Date())}"`)}</div>` +
     `<div class="inl3"><div class="ctl2"><label for="paKg">Weight (${uLbl()})</label><input id="paKg" type="text" inputmode="decimal" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="paReps">Reps (optional)</label><input id="paReps" type="text" inputmode="numeric" autocomplete="off"></div></div>` +
     `<button type="button" class="btn gbtn" data-pastadd="1">Add entry</button><p class="hd" id="paMsg">${esc(pastMsg)}</p></details>`;
@@ -1517,7 +1709,7 @@ function combatLog() {
   return `<div class="runlog"><div class="wkrow"><b>This week</b><span>${mine.length} ${mine.length === 1 ? "session" : "sessions"}, ${fmtMin(total)}</span></div>` +
     (todayC.length ? `<div class="wkrow mt12"><b>Logged for ${FULL[selected]}</b></div>${todayC.map(combatDoneCard).join("")}` : "") +
     `<h4>${todayC.length ? "Log another session" : "Log this session"}</h4><div class="rf">` +
-    `<label>Date<input id="kDate" type="date" value="${entryDate()}" max="${ymd(new Date())}"></label>` +
+    `<label>Date${dateField("kDate", entryDate(), `max="${ymd(new Date())}"`)}</label>` +
     `<label>Sport<select id="kSport">${opts}</select></label>` +
     `<div class="r3"><label>Duration (min)<input id="kMin" type="text" inputmode="numeric" placeholder="60" autocomplete="off"></label>` +
     `<label>Avg heart rate<input id="kHr" type="text" inputmode="numeric" placeholder="bpm, optional" autocomplete="off"></label></div>` +
@@ -1588,8 +1780,159 @@ function weeklyCard() {
   return `<section class="hcard"><div class="hrow"><h3 class="hn">This week</h3><span class="hd">From ${fmtDate(weekKey())}</span></div>` +
     `<div class="wsum"><div><b>${st.sessionsDone}</b><span>sessions</span></div><div><b>${fmtKm(st.runKm)}</b><span>km run</span></div>` +
     `<div><b>${st.bodyKgLatest ? fmtU(st.bodyKgLatest) : "-"}</b><span>${bodyLabel}</span></div></div>` +
-    (ws ? `<p class="iout">${esc(ws.text)}</p>` : `<button type="button" class="btn gbtn" data-weekly="1">Get weekly summary</button><p class="hd">One AI summary per week.</p>`) +
+    (ws ? `<p class="iout">${esc(ws.text)}</p>` + (ws.basis && ws.basis.length ? `<details class="mt8"><summary>What the weekly review used</summary>${ws.basis.map((l) => `<p class="hd">${esc(l)}</p>`).join("")}</details>` : "")
+        : `<button type="button" class="btn gbtn" data-weekly="1">Get weekly summary</button><p class="hd">Looks at the whole week and the last six weeks: volume for each muscle, balance, progress, running and recovery. One per week.</p>`) +
     `<p class="iout" id="weeklyOut"></p></section>`;
+}
+// Facts for the weekly review: the whole week plus the last six weeks. No advice, only numbers.
+function weeklyPayload() {
+  syncGoal();
+  const prog = PROGRAMS[state.program], ew = effectiveWeek(state.program);
+  const cur = weekKey();
+  const m0 = new Date(cur + "T00:00:00");
+  const weekKeys = [];
+  for (let i = 5; i >= 0; i--) weekKeys.push(ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() - 7 * i)));
+  const today = ymd(new Date());
+  const dayIndex = DAY_KEYS.indexOf(todayKey()) + 1;
+  const r1 = (x) => Math.round(x * 10) / 10, r2 = (x) => Math.round(x * 100) / 100;
+
+  // planned sets per exercise name, to estimate volume when sets were not logged one by one
+  const planSets = {};
+  DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => { if (!(i.n in planSets)) planSets[i.n] = plannedSets(i.s); }));
+  const PARTS = ["chest", "back", "shoulders", "arms", "quads", "hamstrings and glutes", "calves", "core"];
+  const vol = {}; PARTS.forEach((pt) => { vol[pt] = weekKeys.map(() => 0); });
+  const freq = {}; PARTS.forEach((pt) => { freq[pt] = {}; });
+  let loggedSets = 0, estimatedSets = 0, pushSets = 0, pullSets = 0;
+  const PULL = new Set(["Biceps curl", "Hammer curl", "Rear delt fly", "Face pull"]);
+  const PUSH = new Set(["Triceps pushdown", "Overhead triceps extension"]);
+  let quads4 = 0, hg4 = 0;
+  Object.keys(state.history).forEach((k) => state.history[k].e.forEach((e) => {
+    const wi = weekKeys.indexOf(wkOf(e.d));
+    if (wi < 0) return;
+    const name = state.history[k].n, part = partOf(name);
+    const lg = (e.sets || []).filter((x) => x.reps || x.kg);
+    const n = lg.length || planSets[name] || 0;
+    if (!n) return;
+    if (lg.length) loggedSets += n; else estimatedSets += n;
+    if (vol[part]) {
+      vol[part][wi] += n;
+      if (wi === 5 && n >= 2) freq[part][e.d] = true;
+    }
+    if (wi >= 2) {
+      if (part === "back" || PULL.has(name)) pullSets += n;
+      else if (part === "chest" || PUSH.has(name) || part === "shoulders") pushSets += n;
+      if (part === "quads") quads4 += n;
+      if (part === "hamstrings and glutes") hg4 += n;
+    }
+  }));
+  const hardSets = {};
+  PARTS.forEach((pt) => { if (vol[pt].some((x) => x)) hardSets[pt] = vol[pt]; });
+  const frequencyThisWeek = {};
+  PARTS.forEach((pt) => { const n = Object.keys(freq[pt]).length; if (n) frequencyThisWeek[pt] = n; });
+
+  // this week day by day, only as a count of what was planned and what happened
+  const days = DAY_KEYS.map((k, idx) => {
+    const ds = ymd(new Date(m0.getFullYear(), m0.getMonth(), m0.getDate() + idx));
+    const sid = ew[k], ss = SESSIONS[sid];
+    const kind = ss ? ss.kind : "rest";
+    let status = "rest";
+    if (kind === "gym") {
+      const c = counts(sid, ds);
+      let entries = 0;
+      Object.keys(state.history).forEach((hk) => state.history[hk].e.forEach((e) => { if (e.d === ds) entries++; }));
+      const done = Math.max(c.done, entries);
+      status = ds > today ? "upcoming" : done >= Math.max(1, Math.ceil(c.total * 0.8)) ? "done" : done > 0 ? "partly done" : ds === today ? "not logged yet" : "missed";
+    } else if (kind === "run" || kind === "combat") {
+      const logged = kind === "run" ? state.runs.some((r) => r.d === ds) : state.combat.some((c) => c.d === ds);
+      status = logged ? "done" : ds > today ? "upcoming" : ds === today ? "not logged yet" : "missed";
+    }
+    return { day: FULL[k], type: kind, status };
+  });
+  const planned = (kind) => days.filter((d) => d.type === kind).length;
+  const dayCount = (wk) => {
+    const set = new Set();
+    Object.keys(state.history).forEach((k) => state.history[k].e.forEach((x) => { if (wkOf(x.d) === wk) set.add(x.d); }));
+    state.runs.forEach((r) => { if (r.w === wk) set.add(r.d); });
+    state.combat.forEach((c) => { if (c.w === wk) set.add(c.d); });
+    return set.size;
+  };
+  const trainingDays = weekKeys.map(dayCount);
+  let streak = 0;
+  for (let i = 4; i >= 0 && trainingDays[i] >= 2; i--) streak++;
+
+  // lifts: first and latest top weight over the window
+  const trends = [];
+  Object.keys(state.history).forEach((k) => {
+    const h = state.history[k];
+    const es = h.e.filter((e) => e.d >= weekKeys[0] && e.kg > 0);
+    if (es.length >= 2) {
+      const a = es[0].kg, z = es[es.length - 1].kg;
+      trends.push({ exercise: h.n, sessions: es.length, firstKg: a, latestKg: z, percentChange: Math.round(((z - a) / a) * 1000) / 10 });
+    }
+  });
+  trends.sort((a, b) => b.sessions - a.sessions);
+  const sg = insightSignals();
+
+  // running and combat by week
+  const maxHr = effMaxHr();
+  const runsByWeek = weekKeys.map((wk) => {
+    const rs = state.runs.filter((r) => r.w === wk);
+    if (!rs.length) return { weekStarting: wk, km: 0, runs: 0 };
+    const km = rs.reduce((t, r) => t + r.km, 0), sec = rs.reduce((t, r) => t + r.sec, 0);
+    const hr = rs.filter((r) => r.hr).map((r) => r.hr);
+    const out = { weekStarting: wk, km: r2(km), runs: rs.length, longestKm: r2(Math.max.apply(null, rs.map((r) => r.km))), averagePace: fmtDur(sec / km) + " per km" };
+    if (hr.length && maxHr) out.averageHeartRatePercentOfMax = Math.round((hr.reduce((t, x) => t + x, 0) / hr.length / maxHr.bpm) * 100);
+    return out;
+  });
+  const combatByWeek = weekKeys.map((wk) => state.combat.filter((c) => c.w === wk).reduce((t, c) => t + c.min, 0));
+  const weeksOfData = weekKeys.filter((wk, i) => trainingDays[i] > 0).length;
+  const cf = coachFacts();
+  const out = {
+    mode: "weekly",
+    weekStarting: cur, today, dayOfWeek: dayIndex, weekFinished: dayIndex === 7, weeksOfData,
+    program: prog.name, units: unitW(), goals: String(state.goals || "").slice(0, 200), profile: profileForAI(),
+    weeksOldestToCurrent: weekKeys,
+    adherence: { plannedGymDays: planned("gym"), plannedRunDays: planned("run"), plannedCombatDays: planned("combat"), thisWeek: days },
+    hardSetsByBodyPartByWeek: hardSets,
+    setsCounted: { loggedSetByTheUser: loggedSets, estimatedFromThePlan: estimatedSets },
+    plannedSetsPerWeekByBodyPart: cf.plannedSetsPerWeekByBodyPart,
+    daysWithTwoOrMoreSetsThisWeek: frequencyThisWeek,
+    balanceLast4Weeks: { pushSets, pullSets, pushToPullRatio: pullSets ? r2(pushSets / pullSets) : undefined, quadSets: quads4, hamstringAndGluteSets: hg4 },
+    trainingDaysPerWeek: trainingDays, consecutiveCompletedWeeksWith2PlusTrainingDays: streak,
+    liftTrends: trends.slice(0, 8),
+    stalledLifts: sg.stalledLifts, readyToAddWeight: sg.readyToAddWeight, notTrainedRecently: sg.notTrainedRecently,
+    combatMinutesByWeek: combatByWeek,
+    bodyWeights: state.body.slice(-8).map((x) => ({ date: x.d, kg: x.kg })), bodyWeightTrend: sg.bodyWeight
+  };
+  if (state.runs.length) {
+    out.runningByWeek = runsByWeek;
+    out.runningTrend = sg.running;
+    out.runContext = (runContextFacts() || undefined);
+  }
+  return out;
+}
+function weeklyBasis(p) {
+  const L = [];
+  const a = p.adherence || {};
+  const d = (a.thisWeek || []).filter((x) => x.type !== "rest");
+  const done = d.filter((x) => x.status === "done").length;
+  const ahead = d.filter((x) => x.status === "upcoming").length;
+  L.push("Week of " + fmtDate(p.weekStarting) + " (day " + p.dayOfWeek + " of 7): " + done + " of " + d.length + " planned sessions done" + (ahead ? ", " + ahead + " still ahead" : "") + ".");
+  const hs = p.hardSetsByBodyPartByWeek || {};
+  const parts = Object.keys(hs);
+  if (parts.length) L.push("Sets this week so far (older weeks in the summary): " + parts.map((k) => k + " " + hs[k][5]).join(", ") + ".");
+  const ps = p.plannedSetsPerWeekByBodyPart || {};
+  if (Object.keys(ps).length) L.push("Planned per week: " + Object.keys(ps).map((k) => k + " " + ps[k]).join(", ") + ".");
+  const sc = p.setsCounted || {};
+  L.push("Sets counted: " + sc.loggedSetByTheUser + " logged by you, " + sc.estimatedFromThePlan + " estimated from the plan.");
+  const b = p.balanceLast4Weeks || {};
+  if (b.pushToPullRatio) L.push("Push to pull over the last 4 weeks: " + b.pushSets + " to " + b.pullSets + " sets (ratio " + b.pushToPullRatio + ").");
+  L.push("Training days per week, oldest to this week: " + (p.trainingDaysPerWeek || []).join(", ") + ".");
+  (p.liftTrends || []).slice(0, 3).forEach((x) => L.push(x.exercise + ": " + x.firstKg + " to " + x.latestKg + " kg over " + x.sessions + " sessions."));
+  if (p.runningByWeek) L.push("Running km per week: " + p.runningByWeek.map((x) => x.km).join(", ") + ".");
+  if ((p.combatMinutesByWeek || []).some((x) => x)) L.push("Combat minutes per week: " + p.combatMinutesByWeek.join(", ") + ".");
+  if ((p.bodyWeights || []).length) L.push("Body weigh-ins: " + p.bodyWeights.length + ", latest " + p.bodyWeights[p.bodyWeights.length - 1].kg + " kg.");
+  return L;
 }
 async function getWeekly() {
   const out = document.getElementById("weeklyOut");
@@ -1600,7 +1943,7 @@ async function getWeekly() {
   try {
     const s = await sb.auth.getSession();
     const token = s.data && s.data.session ? s.data.session.access_token : "";
-    const payload = Object.assign(insightPayload(), { mode: "weekly", weekStarting: weekKey(), week: weekStats() });
+    const payload = weeklyPayload();
     const res = await fetch("/api/insight", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -1613,7 +1956,7 @@ async function getWeekly() {
       if (btn) btn.disabled = false;
       return;
     }
-    state.weeklySummary = { w: weekKey(), text: data.insight };
+    state.weeklySummary = { w: weekKey(), text: data.insight, basis: weeklyBasis(payload) };
     save();
     render();
   } catch (e) {
@@ -1861,13 +2204,15 @@ const LIBRARY = [
   "Standing calf raise", "Seated calf raise", "Cable crunch", "Pallof press", "Cable woodchop", "Hanging leg raise", "Neck flexion/extension (band)",
   "Barbell bench press", "Overhead press", "Barbell row", "Deadlift", "Back squat",
   "Biceps curl", "Triceps pushdown", "Hammer curl", "Overhead triceps extension",
-  "Goblet squat", "Dumbbell Romanian deadlift", "Dumbbell bench press", "Push-up", "Dumbbell shoulder press", "Dumbbell row", "Dumbbell lunge", "Glute bridge", "Plank"
+  "Goblet squat", "Dumbbell Romanian deadlift", "Dumbbell bench press", "Push-up", "Dumbbell shoulder press", "Dumbbell row", "Dumbbell lunge", "Glute bridge", "Plank",
+  "Hip abduction machine", "Cable glute kickback",
+  "Dumbbell hip thrust", "Single-leg glute bridge", "Single-leg Romanian deadlift", "Side-lying leg raise"
 ];
 const CHEST = new Set(["Incline press (30°)", "Low-incline DB press", "Smith incline press", "Incline machine press", "Low-to-high cable fly", "Incline cable fly"]);
 
 let customIdx = -1;
 
-const LIB_GROUPS = [["Chest", 0, 8], ["Back", 8, 14], ["Legs", 14, 22], ["Hamstrings and glutes", 22, 29], ["Shoulders", 29, 33], ["Calves, core and neck", 33, 40], ["Strength lifts", 40, 45], ["Arms", 45, 49], ["Home and dumbbell", 49, 58]];
+const LIB_GROUPS = [["Chest", 0, 8], ["Back", 8, 14], ["Legs", 14, 22], ["Hamstrings and glutes", 22, 29], ["Shoulders", 29, 33], ["Calves, core and neck", 33, 40], ["Strength lifts", 40, 45], ["Arms", 45, 49], ["Home and dumbbell", 49, 58], ["More hips and glutes", 58, 64]];
 
 function exOptions(cur, forAdd) {
   let html = forAdd
@@ -2043,7 +2388,7 @@ const BODY_PART = {};
   ["shoulders", ["Lateral raise", "Cable lateral raise", "Rear delt fly", "Face pull", "Overhead press", "Dumbbell shoulder press"]],
   ["arms", ["Biceps curl", "Triceps pushdown", "Hammer curl", "Overhead triceps extension"]],
   ["quads", ["Hack squat", "Squat", "Front squat", "Back squat", "Goblet squat", "Leg press", "Bulgarian split squat (per leg)", "Walking lunge", "Dumbbell lunge", "Step-up", "Leg extension", "Spanish squat hold", "Slow step-downs (3 sec lowering)", "Backward sled drag"]],
-  ["hamstrings and glutes", ["Romanian deadlift", "Dumbbell Romanian deadlift", "Deadlift", "Hip thrust", "Glute bridge", "Seated leg curl", "Lying leg curl", "Nordic curl"]],
+  ["hamstrings and glutes", ["Romanian deadlift", "Dumbbell Romanian deadlift", "Deadlift", "Hip thrust", "Glute bridge", "Seated leg curl", "Lying leg curl", "Nordic curl", "Hip abduction machine", "Cable glute kickback", "Dumbbell hip thrust", "Single-leg glute bridge", "Single-leg Romanian deadlift", "Side-lying leg raise"]],
   ["calves", ["Standing calf raise", "Seated calf raise"]],
   ["core", ["Cable crunch", "Pallof press", "Cable woodchop", "Hanging leg raise", "Plank"]],
   ["neck", ["Neck flexion/extension (band)"]]
@@ -2053,10 +2398,18 @@ function plannedSets(plan) {
   const m = /^\s*(\d+)(?:\s*-\s*\d+)?\s*x/i.exec(String(plan || ""));
   return m ? Number(m[1]) : 0;
 }
+function avoidList() {
+  const p = state.profile;
+  return String((p && p.avoid) || "").split(/[,;\n]/).map((x) => x.trim().toLowerCase()).filter(Boolean).slice(0, 12);
+}
+function isAvoided(name) {
+  const n = String(name || "").toLowerCase();
+  return avoidList().some((a) => n === a || n.indexOf(a) > -1);
+}
 function swapOptionsFor(name, inProgram) {
   const part = partOf(name);
   if (part === "other") return [];
-  return LIBRARY.filter((n) => n !== name && partOf(n) === part && !inProgram.has(n)).slice(0, 4);
+  return LIBRARY.filter((n) => n !== name && partOf(n) === part && !inProgram.has(n) && !isAvoided(n)).slice(0, 4);
 }
 
 // Plain facts about the whole week. No advice: the coach decides what they mean.
@@ -2119,6 +2472,16 @@ function coachPayload() {
   p.runStats = rp.runStats;
   p.runContext = rp.runContext;
   Object.assign(p, coachFacts());
+  // On a lifting, combat or rest day the coach gets only the run facts that change what to do today, so it writes about the session.
+  const vs = SESSIONS[getSid(selected)];
+  const runDay = !!vs && (vs.kind === "run" || !!(PROGRAMS[state.program].runWith && PROGRAMS[state.program].runWith[selected]));
+  p.sessionIsRun = runDay;
+  if (!runDay) {
+    delete p.runs; delete p.weeklyRunKm; delete p.runStats;
+    if (p.signals) delete p.signals.running;
+    const rc = p.runContext;
+    p.runContext = rc ? { weeklyGoalKm: rc.weeklyGoalKm, weekSoFarKm: rc.weekSoFarKm, kmLeftToGoalThisWeek: rc.kmLeftToGoalThisWeek, upcomingProgramRunDays: rc.upcomingProgramRunDays } : undefined;
+  }
   const ew = effectiveWeek(state.program);
   const inProg = new Set();
   DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => inProg.add(i.n)));
@@ -2151,6 +2514,31 @@ function coachBasis(p) {
   return L.concat(runCoachBasis(p));
 }
 
+// Plain facts about one lift in the session being viewed, so the coach can say something useful even in the first weeks.
+function liftFacts(it, h) {
+  const d = entryDate();
+  const prior = h ? h.e.filter((x) => x.d < d) : [];
+  const out = { timesLoggedBefore: prior.length };
+  if (!prior.length) out.firstTimeLogged = true;
+  const e = h ? h.e.find((x) => x.d === d) : null;
+  if (!e) return out;
+  const pr = planRange(it.s);
+  const sets = (e.sets || []).filter((x) => x.reps);
+  out.loggedThisSession = { topKg: e.kg, sets: sets.map((x) => x.kg + "x" + x.reps) };
+  if (pr && sets.length) {
+    out.plannedSets = pr.sets; out.setsLogged = sets.length;
+    out.repsVsPlan = sets.every((x) => x.reps >= pr.hi) ? "every set reached the top of the rep range"
+      : sets.every((x) => x.reps >= pr.lo) ? "reps stayed inside the range"
+      : "some sets fell below the range";
+  }
+  if (prior.length) {
+    const last = prior[prior.length - 1];
+    out.lastSessionTopKg = last.kg;
+    out.changeFromLastSession = e.kg > last.kg ? "heavier" : e.kg < last.kg ? "lighter" : "same weight";
+  }
+  return out;
+}
+
 function insightPayload() {
   syncGoal();
   const prog = PROGRAMS[state.program];
@@ -2160,13 +2548,13 @@ function insightPayload() {
   const weekKm = state.runs.filter((r) => r.w === wk).reduce((t, r) => t + r.km, 0);
   const exercises = getItems(sid).filter((i) => !i.opt).map((i) => {
     const h = state.history[slug(i.n)];
-    return {
+    return Object.assign({
       exercise: i.n,
       plan: i.s,
       bodyPart: partOf(i.n),
       doneOnThisDay: !!state.done[doneKey(sid, i)],
       recentWeightsKg: h ? h.e.slice(-12).map(aiEntry) : []
-    };
+    }, liftFacts(i, h));
   });
   const runs = state.runs.slice(-12).map((r) => ({
     date: r.d, km: r.km, minutes: Math.round((r.sec / 60) * 10) / 10,
@@ -2335,7 +2723,7 @@ function runCoachBasis(p) {
 function insightCard() {
   const li = state.lastInsight;
   return `<section class="hcard"><div class="hrow"><h3 class="hn">Coach</h3></div>` +
-    `<p class="hd">Reads your whole week: lifts, runs and kickboxing. Tells you what to improve and how, and what to watch out for tomorrow. It gets better after a few sessions.</p>` +
+    `<p class="hd">Reads your whole week: lifts, runs and combat sports. Tells you what to improve and how, and what to watch out for tomorrow. It gets better after a few sessions.</p>` +
     `<div class="ctl2"><label for="goalsIn">Anything else the coach should know? (optional)</label>` +
     `<input id="goalsIn" type="text" maxlength="200" value="${esc(state.goals || "")}" placeholder="For example: focus on upper chest, no direct arm work, sore left knee" autocomplete="off"></div>` +
     `<button type="button" class="btn gbtn" data-insight="1">Get coach advice</button>` +
@@ -2551,6 +2939,23 @@ function deleteProgram(pid) {
 let aiEdit = null;
 const AI_EDIT_CHIPS = ["Fix a stuck lift", "More upper chest", "Lighter legs before long runs", "Swap an exercise I dislike"];
 
+function dateText(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+  if (!m) return "";
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+function dateField(id, value, attrs) {
+  const t = dateText(value);
+  return `<span class="dwrap"><span class="dview${t ? "" : " empty"}" aria-hidden="true">${t ? esc(t) : "Choose a date"}</span><input id="${id}" type="date" value="${esc(value || "")}"${attrs ? " " + attrs : ""}></span>`;
+}
+function syncDateView(inp) {
+  const v = inp.parentElement && inp.parentElement.querySelector(".dview");
+  if (!v) return;
+  const t = dateText(inp.value);
+  v.textContent = t || "Choose a date";
+  v.classList.toggle("empty", !t);
+}
+
 // Ticks are saved per session id. A copied program has new session ids, so this week's ticks must be carried over.
 function sidMap(fromPid, toPid, toWeek) {
   const ewFrom = effectiveWeek(fromPid), map = {};
@@ -2601,7 +3006,7 @@ function cleanAiChanges(raw) {
   const lib = {}, known = {};
   LIBRARY.forEach((n) => { lib[n.toLowerCase()] = n; });
   DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => { known[i.n.toLowerCase()] = i.n; }));
-  const canon = (n) => { const k = String(n || "").trim().toLowerCase(); return lib[k] || known[k] || null; };
+  const canon = (n) => { const k = String(n || "").trim().toLowerCase(); const r = lib[k] || known[k] || null; return r && !isAvoided(r) ? r : null; };
   const dayOf = (v) => { const t = String(v || "").trim().toLowerCase(); return DAY_KEYS.find((k) => FULL[k].toLowerCase() === t || SHORT[k].toLowerCase() === t); };
   const sim = {};
   DAY_KEYS.forEach((k) => { const ss = SESSIONS[ew[k]]; sim[k] = ss && ss.kind === "gym" ? getItems(ew[k]).map((i) => i.n) : null; });
@@ -2649,14 +3054,19 @@ function parseAiEdit(text) {
 function aiEditPayload(req) {
   const c = coachPayload();
   const byPart = {};
-  LIBRARY.forEach((n) => { const k = partOf(n); (byPart[k] = byPart[k] || []).push(n); });
+  LIBRARY.filter((n) => !isAvoided(n)).forEach((n) => { const k = partOf(n); (byPart[k] = byPart[k] || []).push(n); });
   const sg = c.signals || {};
+  const ew = effectiveWeek(state.program), names = new Set(), rw = {};
+  DAY_KEYS.forEach((k) => getItems(ew[k]).forEach((i) => names.add(i.n)));
+  names.forEach((n) => { const h = state.history[slug(n)]; if (!h) return; const w = h.e.filter((x) => x.kg > 0).slice(-4).map((x) => x.kg); if (w.length) rw[n] = w; });
   return {
     mode: "edit",
     request: req || "Improve my program based on my data.",
     goals: c.goals, profile: c.profile, program: c.program, units: c.units,
     week: c.week.map((d) => ({ day: d.day, session: d.session, type: d.type, isToday: d.isToday, isTomorrow: d.isTomorrow, exercises: d.exercises })),
     plannedSetsPerWeekByBodyPart: c.plannedSetsPerWeekByBodyPart,
+    recentWeightsKg: rw,
+    combat: sg.combat, combatSessions: c.combatSessions,
     signals: { stalledLifts: sg.stalledLifts, progressingLifts: sg.progressingLifts, readyToAddWeight: sg.readyToAddWeight, notTrainedRecently: sg.notTrainedRecently },
     trainingDaysPerWeekLast6: c.trainingDaysPerWeekLast6,
     consecutiveCompletedWeeksWith2PlusTrainingDays: c.consecutiveCompletedWeeksWith2PlusTrainingDays,
@@ -2959,10 +3369,10 @@ async function sendShare() {
 }
 
 let pview = "";
-const FAMILIES = ["Custom Program", "Shared", "Build muscle", "Strength", "Fat loss and cardio", "Running", "At home", COMBAT_FAMILY];
-const GOAL_OPTIONS = [["lose", "Lose weight"], ["muscle", "Build muscle"], ["both", "Lose fat and build muscle"], ["strength", "Get stronger"], ["cardio", "Improve running and cardio"], ["sport", "Sports performance"], ["health", "Stay healthy and fit"]];
-const GOAL_TAGS = { lose: ["fat"], muscle: ["muscle"], both: ["fat", "muscle"], strength: ["strength"], cardio: ["cardio"], sport: ["sport"], health: ["health"] };
-const TAG_LABELS = { muscle: "building muscle", fat: "losing fat", strength: "getting stronger", cardio: "cardio", sport: "sports performance", health: "staying healthy" };
+const FAMILIES = ["Custom Program", "Shared", "Build muscle", "Glute focus", "Strength", "Fat loss and cardio", "Running", "At home", COMBAT_FAMILY];
+const GOAL_OPTIONS = [["lose", "Lose weight"], ["muscle", "Build muscle"], ["glutes", "Build my glutes"], ["both", "Lose fat and build muscle"], ["strength", "Get stronger"], ["cardio", "Improve running and cardio"], ["sport", "Sports performance"], ["health", "Stay healthy and fit"]];
+const GOAL_TAGS = { lose: ["fat"], muscle: ["muscle"], glutes: ["glute"], both: ["fat", "muscle"], strength: ["strength"], cardio: ["cardio"], sport: ["sport"], health: ["health"] };
+const TAG_LABELS = { glute: "building glutes", muscle: "building muscle", fat: "losing fat", strength: "getting stronger", cardio: "cardio", sport: "sports performance", health: "staying healthy" };
 const LEVELS = [["new", "New to lifting (under 6 months)"], ["some", "Some experience (6 months to 2 years)"], ["experienced", "Experienced (2+ years)"]];
 const EQUIP = [["gym", "Full gym"], ["home", "At home (dumbbells and bodyweight)"]];
 const ACTS = [["run", "Running"], ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["mma", "MMA"], ["bjj", "BJJ (Brazilian jiu-jitsu)"], ["othercombat", "Other combat sport"], ["other", "Other sports"]];
@@ -3012,6 +3422,7 @@ function profileForAI() {
     equipment: lab(EQUIP, p.equip),
     otherActivities: (p.acts || []).map((a) => lab(ACTS, a) || (a === "combat" ? "Combat sports" : a)),
     usualWeeklyRunKm: p.usualKm || undefined,
+    exercisesTheyCannotDo: p.avoid || undefined,
     runningGoal: p.raceType ? ({ "5k": "5k race", "10k": "10k race", half: "Half marathon", marathon: "Marathon" })[p.raceType] : undefined,
     weeksToRace: (() => {
       if (!p.raceType || !p.raceDate) return undefined;
@@ -3041,7 +3452,7 @@ function profileView() {
   return `<section class="hcard"><h3 class="hn">${first ? "About you" : "Your profile"}</h3>` +
     `<p class="hd">${first ? "This helps pick a program that fits you. You can edit it anytime from Profile." : "Changes save to your account."}</p>` +
     `<div class="ctl2"><label for="pName">Name</label><input id="pName" type="text" maxlength="40" value="${esc(nameVal)}" autocomplete="given-name"></div>` +
-    `<div class="ctl2"><label for="pDob">Date of birth</label><input id="pDob" type="date" value="${esc(p.dob || "")}" max="${ymd(new Date())}"></div>` +
+    `<div class="ctl2"><label for="pDob">Date of birth</label>${dateField("pDob", p.dob || "", `max="${ymd(new Date())}"`)}</div>` +
     `<div class="ctl2"><label for="pSex">Sex</label>${sel("pSex", [["Male", "Male"], ["Female", "Female"], ["Prefer not to say", "Prefer not to say"]], p.sex, "Choose")}</div>` +
     `<div class="ctl2"><label for="pUnit">Height</label>` +
     `<select id="pUnit"><option value="cm"${unit === "cm" ? " selected" : ""}>Centimetres</option><option value="ft"${unit === "ft" ? " selected" : ""}>Feet and inches</option></select>` +
@@ -3054,13 +3465,14 @@ function profileView() {
     `<div class="ctl2"><label for="pLevel">Experience with lifting</label>${sel("pLevel", LEVELS, p.level, "Choose")}</div>` +
     `<div class="ctl2"><label for="pEquip">Where you train</label>${sel("pEquip", EQUIP, p.equip, "Choose")}</div>` +
     `<div class="fg2"><span class="fl2">Sports and activities (optional)</span><div class="chips">${chk("pact", ACTS, (p.acts || []).map((a) => (a === "combat" ? "kickboxing" : a)))}</div></div>` +
+    `<div class="ctl2"><label for="pAvoid">Exercises you can't do or have no equipment for (optional)</label><input id="pAvoid" type="text" maxlength="160" placeholder="For example: back extension, lying leg curl" value="${esc(p.avoid || "")}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pKmGoal">Weekly running or cardio distance goal in km (optional)</label><input id="pKmGoal" type="text" inputmode="decimal" placeholder="15" value="${p.kmGoal || ""}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pUsualKm">What you usually run in a week, in km (optional)</label><input id="pUsualKm" type="text" inputmode="decimal" placeholder="For example 10" value="${p.usualKm || ""}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pEasyKm">A normal easy run for you is about how many km? (optional)</label><input id="pEasyKm" type="text" inputmode="decimal" placeholder="For example 5" value="${p.easyKm || ""}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pLongKm">A long run for you starts at how many km? (optional)</label><input id="pLongKm" type="text" inputmode="decimal" placeholder="For example 6" value="${p.longKm || ""}" autocomplete="off"></div>` +
     `<div class="ctl2"><label for="pRace">Running goal (optional)</label><select id="pRace">` +
     [["", "Just build weekly distance"], ["5k", "5k race"], ["10k", "10k race"], ["half", "Half marathon"], ["marathon", "Marathon"]].map((o) => `<option value="${o[0]}"${o[0] === (p.raceType || "") ? " selected" : ""}>${o[1]}</option>`).join("") + `</select></div>` +
-    `<div class="ctl2" id="pRaceWrap"${p.raceType ? "" : " hidden"}><label for="pRaceDate">Race date</label><input id="pRaceDate" type="date" value="${esc(p.raceDate || "")}" min="${ymd(new Date())}"></div>` +
+    `<div class="ctl2" id="pRaceWrap"${p.raceType ? "" : " hidden"}><label for="pRaceDate">Race date</label>${dateField("pRaceDate", p.raceDate || "", `min="${ymd(new Date())}"`)}</div>` +
     `<div class="ctl2"><label for="pMaxHr">Max heart rate in bpm (optional)</label><input id="pMaxHr" type="text" inputmode="numeric" placeholder="Leave blank if unsure" value="${p.maxHr || ""}" data-est="${p.maxHrEst ? "1" : "0"}" autocomplete="off">` +
     `<button type="button" class="btn2" data-hrest="1">Estimate from my age</button>` +
     `<p class="hd">A max heart rate measured on a hard effort is better than an estimate. If you leave it blank, the app uses an estimate from your age automatically and the coach treats effort readings as approximate.</p></div>` +
@@ -3086,6 +3498,7 @@ function readProfile() {
     easyKm: (() => { const u = Number(v("pEasyKm").replace(",", ".")) || 0; return u > 0 && u < 100 ? u : 0; })(),
     longKm: (() => { const u = Number(v("pLongKm").replace(",", ".")) || 0; return u > 0 && u < 100 ? u : 0; })(),
     usualKm: (() => { const u = Number(v("pUsualKm").replace(",", ".")) || 0; return u > 0 && u < 300 ? u : 0; })(),
+    avoid: cleanStr(v("pAvoid"), 160),
     raceType: v("pRace"),
     raceDate: v("pRace") ? v("pRaceDate") : "",
     maxHr: parseInt(v("pMaxHr"), 10) || 0,
@@ -3135,6 +3548,8 @@ function scoreProgram(id, p) {
   if (m.combat) { if (hasCombat(acts)) s += 6; else return -99; }
   if (m.runner) { if (acts.indexOf("run") >= 0) s += 3; else if (tags.indexOf("cardio") >= 0) s += 2; }
   if (m.equip === "gym" && p.equip === "home") return -99;
+  if (m.lowFreq) s -= 2;
+  if (m.glute && (m.equip !== "home" || p.equip === "home")) { if (tags.indexOf("glute") >= 0) s += 4; else if (p.sex === "Female") s += 5; else s -= 3; }
   if (m.equip === "home" && p.equip !== "home") s -= 4;
   if (age !== null && age < 18 && m.family === "Fat loss and cardio") return -99;
   if (m.days === days) s += 5;
@@ -3153,6 +3568,7 @@ function reasonFor(id, p) {
   (p.goals || []).forEach((g) => (GOAL_TAGS[g] || []).forEach((t) => { if (tags.indexOf(t) < 0) tags.push(t); }));
   const hit = tags.filter((t) => m.goals.indexOf(t) >= 0).map((t) => TAG_LABELS[t]);
   if (hit.length) parts.push("good for " + hit.join(" and "));
+  if (m.glute && p.sex === "Female") parts.push("built around glute development");
   if (m.equip === "home") parts.push("no gym needed");
   if (m.combat) parts.push("built around your combat training and running");
   if (m.levels.indexOf(p.level) >= 0) parts.push("suits your experience");
@@ -3428,6 +3844,7 @@ $app.addEventListener("click", (e) => {
 });
 
 $app.addEventListener("change", (e) => {
+  if (e.target.type === "date") syncDateView(e.target);
   if (e.target.closest("[data-rf]")) { recalcRun(); return; }
   const wi = e.target.closest("[data-weight]");
   if (wi) { recordWeight(wi.dataset.weight, wi.dataset.wname, wi.value); return; }
@@ -3564,6 +3981,7 @@ $app.addEventListener("change", (e) => {
 });
 
 $app.addEventListener("input", (e) => {
+  if (e.target.type === "date") syncDateView(e.target);
   if (e.target.id === "pMaxHr") { e.target.dataset.est = "0"; return; }
   const rf = e.target.closest("[data-rf]");
   if (rf) { if (rf.dataset.rf in runAuto) runAuto[rf.dataset.rf] = false; return; }
